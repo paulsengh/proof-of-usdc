@@ -92,6 +92,15 @@ contract ProofOfTwitter is ERC721Enumerable {
             "Invalid Proof"
         );
 
+        // Extract the timestamp chunks from the signals
+        uint256[] memory timestampPack = new uint256[](timestampLengthInSignals);
+        for (uint256 i = timestampIndexInSignals; i < (timestampIndexInSignals + timestampLengthInSignals); i++) {
+            timestampPack[i - timestampIndexInSignals] = signals[i];
+        }
+        
+        // Unpack the timestamp
+        uint256 timestamp = StringUtils.unpackTimestamp(timestampPack);
+
         // Extract the toAddress chunks from the signals
         uint256[] memory toAddressPack = new uint256[](toAddressLengthInSignals);
         for (uint256 i = toAddressIndexInSignals; i < (toAddressIndexInSignals + toAddressLengthInSignals); i++) {
@@ -100,29 +109,37 @@ contract ProofOfTwitter is ERC721Enumerable {
 
         // Convert the packed address signals into a single address
         bytes32 toAddressBytes = StringUtils.convertPackedBytesToBytes32(toAddressPack);
-        address toAddress = address(uint160(uint256(toAddressBytes))); // ensure it's a valid address
+        address toAddress = address(uint160(uint256(toAddressBytes)));
 
-        // Compute the hash of the toAddress to keep it private
-        bytes32 hashedToAddress = keccak256(abi.encodePacked(toAddress));
+        // Hash the timestamp and toAddress to keep them private
+        bytes32 hashedToAddressAndTimestamp = keccak256(abi.encodePacked(toAddress, timestamp));
+        
+        // Check if this hashed combination has already minted an NFT
+        require(!hasMinted[hashedToAddressAndTimestamp], "This address and timestamp combination has already minted an NFT.");
 
-        // Check if the hashed toAddress has already minted an NFT
-        require(!hasMinted[hashedToAddress], "This address has already minted an NFT.");
 
-
-        // Combine extraction of toAddress and username chunks from the signals
-        uint256[] memory usernamePack = new uint256[](toAddressLengthInSignals + usernameLengthInSignals);
-
-        // Extract the username chunks
+        // Extract the username chunks from the signals
+        uint256[] memory usernamePack = new uint256[](usernameLengthInSignals);
         for (uint256 i = usernameIndexInSignals; i < (usernameIndexInSignals + usernameLengthInSignals); i++) {
             usernamePack[i - usernameIndexInSignals] = signals[i];
+        }
+
+        // Combine the usernamePack and timestampPack into one array
+        uint256[] memory combinedPack = new uint256[](usernameLengthInSignals + timestampLengthInSignals);
+        for (uint256 i = 0; i < usernameLengthInSignals; i++) {
+            combinedPack[i] = usernamePack[i];
+        }
+        for (uint256 i = 0; i < timestampLengthInSignals; i++) {
+            combinedPack[usernameLengthInSignals + i] = timestampPack[i];
         }
 
         // Effects: Mint token
         uint256 tokenId = tokenCounter + 1;
 
+        // Convert the combined username and timestamp into a string using StringUtils
         string memory messageBytes = StringUtils.convertPackedBytesToString(
-            usernamePack,
-            bytesInPackedBytes * usernameLengthInSignals,
+            combinedPack,
+            bytesInPackedBytes * (usernameLengthInSignals + timestampLengthInSignals),
             bytesInPackedBytes
         );
         tokenIDToName[tokenId] = messageBytes;
@@ -130,7 +147,7 @@ contract ProofOfTwitter is ERC721Enumerable {
         tokenCounter = tokenCounter + 1;
 
         // Mark this hashed address as having minted an NFT
-        hasMinted[hashedToAddress] = true;
+        hasMinted[hashedToAddressAndTimestamp] = true;
     }
 
     function _beforeTokenTransfer(
