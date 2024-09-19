@@ -14,11 +14,13 @@ contract ProofOfTwitter is ERC721Enumerable {
     using NFTSVG for *;
 
     uint16 public constant bytesInPackedBytes = 31;
-    string constant domain = "x.com";
+    string constant domain = "info.coinbase.com";
     
     uint32 public constant pubKeyHashIndexInSignals = 0; // index of DKIM public key hash in signals array
     uint32 public constant usernameIndexInSignals = 1; // index of first packed twitter username in signals array
     uint32 public constant usernameLengthInSignals = 1; // length of packed twitter username in signals array
+    uint32 public constant toAddressIndexInSignals = 1; // index of packed toAddress in signals array
+    uint32 public constant toAddressLengthInSignals = 9 // length of packed toAddress in signals array
     uint32 public constant addressIndexInSignals = 2; // index of ethereum address in signals array
 
     uint256 private tokenCounter;
@@ -26,6 +28,7 @@ contract ProofOfTwitter is ERC721Enumerable {
     Verifier public immutable verifier;
 
     mapping(uint256 => string) public tokenIDToName;
+    mapping(bytes32 => bool) public hasMinted;
 
     constructor(Verifier v, DKIMRegistry d) ERC721("VerifiedEmail", "VerifiedEmail") {
         verifier = v;
@@ -49,9 +52,8 @@ contract ProofOfTwitter is ERC721Enumerable {
 
     function _domainCheck(uint256[] memory headerSignals) public pure returns (bool) {
         string memory senderBytes = StringUtils.convertPackedBytesToString(headerSignals, 18, bytesInPackedBytes);
-        string[2] memory domainStrings = ["verify@x.com", "info@x.com"];
-        return
-            StringUtils.stringEq(senderBytes, domainStrings[0]) || StringUtils.stringEq(senderBytes, domainStrings[1]);
+        string[1] memory domainStrings = ["no-reply@info.coinbase.com"];
+        return StringUtils.stringEq(senderBytes, domainStrings[0]);
         // Usage: require(_domainCheck(senderBytes, domainStrings), "Invalid domain");
     }
 
@@ -88,10 +90,27 @@ contract ProofOfTwitter is ERC721Enumerable {
             "Invalid Proof"
         );
 
-        // Extract the username chunks from the signals. 
-        // Note that this is not relevant now as username can fit in one signal
-        // TODO: Simplify signal uint to string conversion
-        uint256[] memory usernamePack = new uint256[](usernameLengthInSignals);
+        // Extract the toAddress chunks from the signals
+        uint256[] memory toAddressPack = new uint256[](toAddressLengthInSignals);
+        for (uint256 i = toAddressIndexInSignals; i < (toAddressIndexInSignals + toAddressLengthInSignals); i++) {
+            toAddressPack[i - toAddressIndexInSignals] = signals[i];
+        }
+
+        // Convert the packed address signals into a single address
+        bytes32 toAddressBytes = StringUtils.convertPackedBytesToBytes32(toAddressPack);
+        address toAddress = address(uint160(uint256(toAddressBytes))); // ensure it's a valid address
+
+        // Compute the hash of the toAddress to keep it private
+        bytes32 hashedToAddress = keccak256(abi.encodePacked(toAddress));
+
+        // Check if the hashed toAddress has already minted an NFT
+        require(!hasMinted[hashedToAddress], "This address has already minted an NFT.");
+
+
+        // Combine extraction of toAddress and username chunks from the signals
+        uint256[] memory usernamePack = new uint256[](toAddressLengthInSignals + usernameLengthInSignals);
+
+        // Extract the username chunks
         for (uint256 i = usernameIndexInSignals; i < (usernameIndexInSignals + usernameLengthInSignals); i++) {
             usernamePack[i - usernameIndexInSignals] = signals[i];
         }
@@ -99,7 +118,6 @@ contract ProofOfTwitter is ERC721Enumerable {
         // Effects: Mint token
         uint256 tokenId = tokenCounter + 1;
 
-        // TODO: Change bytesInPackedBytes * usernameLengthInSignals -> usernameLengthInSignals
         string memory messageBytes = StringUtils.convertPackedBytesToString(
             usernamePack,
             bytesInPackedBytes * usernameLengthInSignals,
@@ -108,6 +126,9 @@ contract ProofOfTwitter is ERC721Enumerable {
         tokenIDToName[tokenId] = messageBytes;
         _mint(msg.sender, tokenId);
         tokenCounter = tokenCounter + 1;
+
+        // Mark this hashed address as having minted an NFT
+        hasMinted[hashedToAddress] = true;
     }
 
     function _beforeTokenTransfer(

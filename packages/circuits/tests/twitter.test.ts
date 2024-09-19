@@ -38,7 +38,7 @@ describe("Twitter email test", function () {
     // Calculate DKIM pubkey hash to verify its same as the one from circuit output
     // We input pubkey as 121 * 17 chunk, but the circuit convert it to 242 * 9 chunk for hashing
     // https://zkrepl.dev/?gist=43ce7dce2466c63812f6efec5b13aa73 - This can be used to get pubkey hash from 121 * 17 chunk
-    const dkimResult = await verifyDKIMSignature(rawEmail, "x.com");
+    const dkimResult = await verifyDKIMSignature(rawEmail, "info.coinbase.com");
     const poseidon = await buildPoseidon();
     const pubkeyChunked = bigIntToChunkedBytes(dkimResult.publicKey, 242, 9);
     const hash = poseidon(pubkeyChunked);
@@ -48,7 +48,7 @@ describe("Twitter email test", function () {
     expect(witness[1]).toEqual(poseidon.F.toObject(hash));
 
     // Verify the username is correctly extracted and packed form email body
-    const usernameInEmailBytes = new TextEncoder().encode("zktestemail").reverse(); // Circuit pack in reverse order
+    const usernameInEmailBytes = new TextEncoder().encode("2.26").reverse(); // Circuit pack in reverse order
     expect(witness[2]).toEqual(bytesToBigInt(usernameInEmailBytes));
 
     // Check address public input
@@ -71,7 +71,7 @@ describe("Twitter email test", function () {
 
   it("should fail if the twitterUsernameIndex is out of bounds", async function () {
     const twitterVerifierInputs = await generateTwitterVerifierCircuitInputs(rawEmail, ethAddress);
-    twitterVerifierInputs.twitterUsernameIndex = (twitterVerifierInputs.emailBodyLength! + 1).toString();
+    twitterVerifierInputs.twitterUsernameIndex = (twitterVerifierInputs.emailHeaderLength! + 1).toString();
 
     expect.assertions(1);
 
