@@ -35,8 +35,7 @@ template TwitterVerifier(maxHeadersLength, maxBodyLength, n, k) {
     signal output twitterUsername;
     signal output toEmailAddrPacks[9];
 
-    // not sure the size
-    signal output timestampPacks[9];    
+    signal output timestampPacks[1];    
 
 
     component EV = EmailVerifier(maxHeadersLength, maxBodyLength, n, k, 1);

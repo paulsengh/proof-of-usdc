@@ -19,9 +19,11 @@ contract ProofOfTwitter is ERC721Enumerable {
     uint32 public constant pubKeyHashIndexInSignals = 0; // index of DKIM public key hash in signals array
     uint32 public constant usernameIndexInSignals = 1; // index of first packed twitter username in signals array
     uint32 public constant usernameLengthInSignals = 1; // length of packed twitter username in signals array
-    uint32 public constant toAddressIndexInSignals = 1; // index of packed toAddress in signals array
+    uint32 public constant toAddressIndexInSignals = 2; // index of packed toAddress in signals array
     uint32 public constant toAddressLengthInSignals = 9 // length of packed toAddress in signals array
-    uint32 public constant addressIndexInSignals = 2; // index of ethereum address in signals array
+    uint32 public constant timestampIndexInSignals = 3;
+    uint32 public constant timestampLengthInSignals = 1;
+    uint32 public constant addressIndexInSignals = 4; // index of ethereum address in signals array
 
     uint256 private tokenCounter;
     DKIMRegistry dkimRegistry;
@@ -39,7 +41,7 @@ contract ProofOfTwitter is ERC721Enumerable {
         string memory twitter_username = tokenIDToName[tokenId];
         address address_owner = ownerOf(tokenId);
         string memory result = string(
-            abi.encodePacked("Twitter username", twitter_username, "is owned by", StringUtils.toString(address_owner))
+            abi.encodePacked(StringUtils.toString(address_owner), "earned", twitter_username, "USDC")
         );
         return result;
     }
