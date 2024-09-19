@@ -74,9 +74,9 @@ template TwitterVerifier(maxHeadersLength, maxBodyLength, n, k) {
     signal (twitterFound, twitterReveal[maxHeadersLength]) <== TwitterResetRegex(maxHeadersLength)(emailHeader);
     twitterFound === 1;
 
-    // Assert twitterUsernameIndex < emailBodyLength
-    // signal isTwitterIndexValid <== LessThan(log2Ceil(maxBodyLength))([twitterUsernameIndex, emailBodyLength]);
-    // isTwitterIndexValid === 1;
+    // Assert twitterUsernameIndex < emailHeaderLength
+    signal isTwitterIndexValid <== LessThan(log2Ceil(maxHeaderLength))([twitterUsernameIndex, emailHeaderLength]);
+    isTwitterIndexValid === 1;
 
     // Pack the username to int
     var maxTwitterUsernameLength = 21;

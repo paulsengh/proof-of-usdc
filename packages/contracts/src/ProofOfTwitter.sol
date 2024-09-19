@@ -81,7 +81,7 @@ contract ProofOfTwitter is ERC721Enumerable {
         bytes32 dkimPublicKeyHashInCircuit = bytes32(signals[pubKeyHashIndexInSignals]);
         require(dkimRegistry.isDKIMPublicKeyHashValid(domain, dkimPublicKeyHashInCircuit), "invalid dkim signature"); 
 
-        // Veiry RSA and proof
+        // Verify RSA and proof
         require(
             verifier.verifyProof(
                 [proof[0], proof[1]],
