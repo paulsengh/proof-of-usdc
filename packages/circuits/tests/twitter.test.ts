@@ -34,7 +34,6 @@ describe("Twitter email test", function () {
     const twitterVerifierInputs = await generateTwitterVerifierCircuitInputs(rawEmail, ethAddress);
     const witness = await circuit.calculateWitness(twitterVerifierInputs);
     await circuit.checkConstraints(witness);
-
     // Calculate DKIM pubkey hash to verify its same as the one from circuit output
     // We input pubkey as 121 * 17 chunk, but the circuit convert it to 242 * 9 chunk for hashing
     // https://zkrepl.dev/?gist=43ce7dce2466c63812f6efec5b13aa73 - This can be used to get pubkey hash from 121 * 17 chunk
@@ -52,12 +51,12 @@ describe("Twitter email test", function () {
     expect(witness[2]).toEqual(bytesToBigInt(usernameInEmailBytes));
 
     // Check address public input
-    expect(witness[3]).toEqual(BigInt(ethAddress));
+    expect(witness[4]).toEqual(BigInt(ethAddress));
   });
 
   it("should fail if the twitterUsernameIndex is invalid", async function () {
     const twitterVerifierInputs = await generateTwitterVerifierCircuitInputs(rawEmail, ethAddress);
-    twitterVerifierInputs.twitterUsernameIndex = (Number((await twitterVerifierInputs).twitterUsernameIndex) + 1).toString();
+    twitterVerifierInputs.rewardAmountIndex = (Number((await twitterVerifierInputs).rewardAmountIndex) + 1).toString();
 
     expect.assertions(1);
 
@@ -71,7 +70,7 @@ describe("Twitter email test", function () {
 
   it("should fail if the twitterUsernameIndex is out of bounds", async function () {
     const twitterVerifierInputs = await generateTwitterVerifierCircuitInputs(rawEmail, ethAddress);
-    twitterVerifierInputs.twitterUsernameIndex = (twitterVerifierInputs.emailHeaderLength! + 1).toString();
+    twitterVerifierInputs.rewardAmountIndex = (twitterVerifierInputs.emailHeaderLength! + 1).toString();
 
     expect.assertions(1);
 

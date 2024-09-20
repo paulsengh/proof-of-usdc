@@ -26,14 +26,15 @@ template TwitterVerifier(maxHeadersLength, maxBodyLength, n, k) {
     signal input emailHeaderLength;
     signal input pubkey[k];
     signal input signature[k];
+    signal input timestampIndex;
     signal input rewardAmountIndex;
     signal input address; // we don't need to constrain the + 1 due to https://geometry.xyz/notebook/groth16-malleability
-    signal input toEmailIndex;
-    signal input timestampIndex;
 
     signal output pubkeyHash;
     signal output rewardAmount;
-    signal output emailHeaderHash[256];
+
+    // switch to use EmailNullifier (signature)
+    // signal output emailHeaderHash[256];
     signal output timestampPacks[1];    
 
     component EV = EmailVerifier(maxHeadersLength, maxBodyLength, n, k, 1);
@@ -42,7 +43,7 @@ template TwitterVerifier(maxHeadersLength, maxBodyLength, n, k) {
     EV.signature <== signature;
     EV.emailHeaderLength <== emailHeaderLength;
     pubkeyHash <== EV.pubkeyHash;
-    emailHeaderHash <== EV.sha;
+    // emailHeaderHash <== EV.sha;
 
     // TIMESTAMP REGEX
     var maxTimestampLength = 10;
