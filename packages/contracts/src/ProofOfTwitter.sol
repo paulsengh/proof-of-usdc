@@ -108,22 +108,21 @@ contract ProofOfTwitter is ERC721Enumerable {
             timestampPack[i - timestampIndexInSignals] = signals[i];
         }
         
-        // Unpack the timestamp
-        uint256 timestamp = StringUtils.unpackTimestamp(timestampPack);
-
         // Extract the toAddress chunks from the signals
         uint256[] memory toAddressPack = new uint256[](toAddressLengthInSignals);
         for (uint256 i = toAddressIndexInSignals; i < (toAddressIndexInSignals + toAddressLengthInSignals); i++) {
             toAddressPack[i - toAddressIndexInSignals] = signals[i];
         }
 
-        // Convert the packed address signals into a single address
-        bytes32 toAddressBytes = StringUtils.convertPackedBytesToBytes32(toAddressPack);
-        address toAddress = address(uint160(uint256(toAddressBytes)));
+        // Convert the packed address signals into a string
+        string memory toAddressString = StringUtils.convertPackedBytesToString(toAddressPack);  // Converts to string
 
-        // Hash the timestamp and toAddress to keep them private
-        bytes32 hashedToAddressAndTimestamp = keccak256(abi.encodePacked(toAddress, timestamp));
-        
+        // Convert the packed timestamp signals into a string
+        string memory timestampString = StringUtils.convertPackedBytesToString(timestampPack);  // Converts to string
+
+        // Hash the toAddressString and timestampString together to keep them private
+        bytes32 hashedToAddressAndTimestamp = keccak256(abi.encodePacked(toAddressString, timestampString));
+
         // Check if this hashed combination has already minted an NFT
         require(!hasMinted[hashedToAddressAndTimestamp], "This address and timestamp combination has already minted an NFT.");
 
