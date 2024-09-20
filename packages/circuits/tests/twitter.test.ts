@@ -51,7 +51,7 @@ describe("Twitter email test", function () {
     expect(witness[2]).toEqual(bytesToBigInt(usernameInEmailBytes));
 
     // Check address public input
-    expect(witness[4]).toEqual(BigInt(ethAddress));
+    expect(witness[5]).toEqual(BigInt(ethAddress));
   });
 
   it("should fail if the twitterUsernameIndex is invalid", async function () {

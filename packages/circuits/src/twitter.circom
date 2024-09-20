@@ -3,6 +3,7 @@ pragma circom 2.1.5;
 include "@zk-email/zk-regex-circom/circuits/common/from_addr_regex.circom";
 include "@zk-email/zk-regex-circom/circuits/common/to_addr_regex.circom";
 include "@zk-email/zk-regex-circom/circuits/common/timestamp_regex.circom";
+include "@zk-email/circuits/helpers/email-nullifier.circom";
 include "@zk-email/circuits/email-verifier.circom";
 include "@zk-email/circuits/utils/regex.circom";
 include "./twitter-reset-regex.circom";
@@ -34,7 +35,7 @@ template TwitterVerifier(maxHeadersLength, maxBodyLength, n, k) {
     signal output rewardAmount;
 
     // switch to use EmailNullifier (signature)
-    // signal output emailHeaderHash[256];
+    signal output emailHeaderHash;
     signal output timestampPacks[1];    
 
     component EV = EmailVerifier(maxHeadersLength, maxBodyLength, n, k, 1);
@@ -43,7 +44,8 @@ template TwitterVerifier(maxHeadersLength, maxBodyLength, n, k) {
     EV.signature <== signature;
     EV.emailHeaderLength <== emailHeaderLength;
     pubkeyHash <== EV.pubkeyHash;
-    // emailHeaderHash <== EV.sha;
+
+    emailHeaderHash <== EmailNullifier(n, k)(signature);
 
     // TIMESTAMP REGEX
     var maxTimestampLength = 10;

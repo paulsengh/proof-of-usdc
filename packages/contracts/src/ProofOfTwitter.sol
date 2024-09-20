@@ -20,7 +20,7 @@ contract ProofOfTwitter is ERC721Enumerable {
     uint32 public constant rewardAmountIndexInSignals = 1; // index of first packed twitter username in signals array
     uint32 public constant rewardAmountLengthInSignals = 1; // length of packed twitter username in signals array
     uint32 public constant headerHashIndexInSignals = 2; // index of packed header hash in signals array
-    uint32 public constant headerHashLengthInSignals = 256; // length of packed header hash in signals array
+    uint32 public constant headerHashLengthInSignals = 1; // length of packed header hash in signals array
     uint32 public constant timestampIndexInSignals = 3;
     uint32 public constant timestampLengthInSignals = 1;
     uint32 public constant addressIndexInSignals = 4; // index of ethereum address in signals array
@@ -31,7 +31,8 @@ contract ProofOfTwitter is ERC721Enumerable {
 
     mapping(uint256 => string) public tokenIDToRewardAmount;
     mapping(uint256 => string) public tokenIDToTimestamp;
-    mapping(bytes32 => bool) public hasMinted;
+    // is it fine to use string as key?
+    mapping(string => bool) public hasMinted;
 
     constructor(Verifier v, DKIMRegistry d) ERC721("VerifiedEmail", "VerifiedEmail") {
         verifier = v;
@@ -101,36 +102,30 @@ contract ProofOfTwitter is ERC721Enumerable {
             ),
             "Invalid Proof"
         );
-
-        // Extract the timestamp chunks from the signals
-        uint256[] memory timestampPack = new uint256[](timestampLengthInSignals);
-        for (uint256 i = timestampIndexInSignals; i < (timestampIndexInSignals + timestampLengthInSignals); i++) {
-            timestampPack[i - timestampIndexInSignals] = signals[i];
-        }
         
         // Extract the toAddress chunks from the signals
-        uint256[] memory toAddressPack = new uint256[](headerHashLengthInSignals);
+        uint256[] memory headerHashPack = new uint256[](headerHashLengthInSignals);
         for (uint256 i = headerHashIndexInSignals; i < (headerHashIndexInSignals + headerHashLengthInSignals); i++) {
-            toAddressPack[i - headerHashIndexInSignals] = signals[i];
+            headerHashPack[i - headerHashIndexInSignals] = signals[i];
         }
 
         // Convert the packed address signals into a string
-        string memory toAddressString = StringUtils.convertPackedBytesToString(toAddressPack);  // Converts to string
-
-        // Convert the packed timestamp signals into a string
-        string memory timestampString = StringUtils.convertPackedBytesToString(timestampPack);  // Converts to string
-
-        // Hash the toAddressString and timestampString together to keep them private
-        bytes32 hashedToAddressAndTimestamp = keccak256(abi.encodePacked(toAddressString, timestampString));
+        string memory headerHashString = StringUtils.convertPackedBytesToString(headerHashPack);  // Converts to string
 
         // Check if this hashed combination has already minted an NFT
-        require(!hasMinted[hashedToAddressAndTimestamp], "This address and timestamp combination has already minted an NFT.");
+        require(!hasMinted[headerHashString], "This address and timestamp combination has already minted an NFT.");
 
 
         // Extract the username chunks from the signals
         uint256[] memory rewardAmountPack = new uint256[](rewardAmountLengthInSignals);
         for (uint256 i = rewardAmountIndexInSignals; i < (rewardAmountIndexInSignals + rewardAmountLengthInSignals); i++) {
             rewardAmountPack[i - rewardAmountIndexInSignals] = signals[i];
+        }
+
+        // Extract the timestamp chunks from the signals
+        uint256[] memory timestampPack = new uint256[](timestampLengthInSignals);
+        for (uint256 i = timestampIndexInSignals; i < (timestampIndexInSignals + timestampLengthInSignals); i++) {
+            timestampPack[i - timestampIndexInSignals] = signals[i];
         }
 
         // Effects: Mint token
@@ -156,7 +151,7 @@ contract ProofOfTwitter is ERC721Enumerable {
         tokenCounter = tokenCounter + 1;
 
         // Mark this hashed address as having minted an NFT
-        hasMinted[hashedToAddressAndTimestamp] = true;
+        hasMinted[headerHashString] = true;
     }
 
     function _beforeTokenTransfer(
