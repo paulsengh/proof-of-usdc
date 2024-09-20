@@ -17,10 +17,10 @@ contract ProofOfTwitter is ERC721Enumerable {
     string constant domain = "info.coinbase.com";
     
     uint32 public constant pubKeyHashIndexInSignals = 0; // index of DKIM public key hash in signals array
-    uint32 public constant usernameIndexInSignals = 1; // index of first packed twitter username in signals array
-    uint32 public constant usernameLengthInSignals = 1; // length of packed twitter username in signals array
+    uint32 public constant rewardAmountIndexInSignals = 1; // index of first packed twitter username in signals array
+    uint32 public constant rewardAmountLengthInSignals = 1; // length of packed twitter username in signals array
     uint32 public constant toAddressIndexInSignals = 2; // index of packed toAddress in signals array
-    uint32 public constant toAddressLengthInSignals = 9 // length of packed toAddress in signals array
+    uint32 public constant toAddressLengthInSignals = 9; // length of packed toAddress in signals array
     uint32 public constant timestampIndexInSignals = 3;
     uint32 public constant timestampLengthInSignals = 1;
     uint32 public constant addressIndexInSignals = 4; // index of ethereum address in signals array
@@ -29,7 +29,8 @@ contract ProofOfTwitter is ERC721Enumerable {
     DKIMRegistry dkimRegistry;
     Verifier public immutable verifier;
 
-    mapping(uint256 => string) public tokenIDToName;
+    mapping(uint256 => string) public tokenIDToRewardAmount;
+    mapping(uint256 => string) public tokenIDToTimestamp;
     mapping(bytes32 => bool) public hasMinted;
 
     constructor(Verifier v, DKIMRegistry d) ERC721("VerifiedEmail", "VerifiedEmail") {
@@ -38,18 +39,27 @@ contract ProofOfTwitter is ERC721Enumerable {
     }
 
     function tokenDesc(uint256 tokenId) public view returns (string memory) {
-        string memory twitter_username = tokenIDToName[tokenId];
+        string memory reward_amount = tokenIDToRewardAmount[tokenId];  // Retrieve the username
+        string memory timestamp = tokenIDToTimestamp[tokenId];    // Retrieve the timestamp
         address address_owner = ownerOf(tokenId);
+        
+        // Create a description with the username and timestamp
         string memory result = string(
-            abi.encodePacked(StringUtils.toString(address_owner), "earned", twitter_username, "USDC")
+            abi.encodePacked(
+                StringUtils.toString(address_owner), 
+                " earned ", 
+                reward_amount, 
+                " USDC at ",
+                timestamp
+            )
         );
         return result;
     }
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        string memory username = tokenIDToName[tokenId];
+        string memory reward_amount = tokenIDToRewardAmount[tokenId];
         address owner = ownerOf(tokenId);
-        return NFTSVG.constructAndReturnSVG(username, tokenId, owner);
+        return NFTSVG.constructAndReturnSVG(reward_amount, tokenId, owner);
     }
 
     function _domainCheck(uint256[] memory headerSignals) public pure returns (bool) {
@@ -119,30 +129,30 @@ contract ProofOfTwitter is ERC721Enumerable {
 
 
         // Extract the username chunks from the signals
-        uint256[] memory usernamePack = new uint256[](usernameLengthInSignals);
-        for (uint256 i = usernameIndexInSignals; i < (usernameIndexInSignals + usernameLengthInSignals); i++) {
-            usernamePack[i - usernameIndexInSignals] = signals[i];
-        }
-
-        // Combine the usernamePack and timestampPack into one array
-        uint256[] memory combinedPack = new uint256[](usernameLengthInSignals + timestampLengthInSignals);
-        for (uint256 i = 0; i < usernameLengthInSignals; i++) {
-            combinedPack[i] = usernamePack[i];
-        }
-        for (uint256 i = 0; i < timestampLengthInSignals; i++) {
-            combinedPack[usernameLengthInSignals + i] = timestampPack[i];
+        uint256[] memory rewardAmountPack = new uint256[](rewardAmountLengthInSignals);
+        for (uint256 i = rewardAmountIndexInSignals; i < (rewardAmountIndexInSignals + rewardAmountLengthInSignals); i++) {
+            rewardAmountPack[i - rewardAmountIndexInSignals] = signals[i];
         }
 
         // Effects: Mint token
         uint256 tokenId = tokenCounter + 1;
 
         // Convert the combined username and timestamp into a string using StringUtils
-        string memory messageBytes = StringUtils.convertPackedBytesToString(
-            combinedPack,
-            bytesInPackedBytes * (usernameLengthInSignals + timestampLengthInSignals),
+        string memory rewardAmountBytes = StringUtils.convertPackedBytesToString(
+            rewardAmountPack,
+            bytesInPackedBytes * rewardAmountLengthInSignals,
             bytesInPackedBytes
         );
-        tokenIDToName[tokenId] = messageBytes;
+
+        // Convert the combined username and timestamp into a string using StringUtils
+        string memory timestampBytes = StringUtils.convertPackedBytesToString(
+            timestampPack,
+            bytesInPackedBytes * timestampLengthInSignals,
+            bytesInPackedBytes
+        );
+        
+        tokenIDToRewardAmount[tokenId] = rewardAmountBytes;
+        tokenIDToTimestamp[tokenId] = timestampBytes;
         _mint(msg.sender, tokenId);
         tokenCounter = tokenCounter + 1;
 
