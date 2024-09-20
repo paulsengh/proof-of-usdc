@@ -2973,6 +2973,7 @@ __metadata:
   dependencies:
     "@babel/preset-env": ^7.23.3
     "@babel/preset-typescript": ^7.23.3
+    "@types/circomlibjs": ^0.1.6
     "@types/pako": ^2.0.3
     "@zk-email/circuits": ^6.1.3
     "@zk-email/helpers": ^6.1.3
@@ -3632,6 +3633,13 @@ __metadata:
   dependencies:
     "@babel/types": ^7.20.7
   checksum: 2bdc65eb62232c2d5c1086adeb0c31e7980e6fd7e50a3483b4a724a1a1029c84d9cb59749cf8de612f9afa2bc14c85b8f50e64e21f8a4398fa77eb9059a4283c
+  languageName: node
+  linkType: hard
+
+"@types/circomlibjs@npm:^0.1.6":
+  version: 0.1.6
+  resolution: "@types/circomlibjs@npm:0.1.6"
+  checksum: c1626380bd46f6da6ab45c59338a91f0166933ae987a03eda2ae09c490457aa010e412c46192502198b7b41054ee0129bece3d3edcbabdb05ea226582f772cc4
   languageName: node
   linkType: hard
 

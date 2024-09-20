@@ -8,6 +8,7 @@
     "test": "NODE_OPTIONS=--max_old_space_size=16384 jest"
   },
   "dependencies": {
+    "@types/circomlibjs": "^0.1.6",
     "@zk-email/circuits": "^6.1.3",
     "@zk-email/helpers": "^6.1.3",
     "@zk-email/zk-regex-circom": "^1.1.1",
