@@ -3,7 +3,7 @@ pragma circom 2.1.5;
 include "@zk-email/zk-regex-circom/circuits/regex_helpers.circom";
 
 // regex: [0-9]+\.[0-9]+ USDC rewards
-template TwitterResetRegex(msg_bytes) {
+template RewardAmountRegex(msg_bytes) {
 	signal input msg[msg_bytes];
 	signal output out;
 

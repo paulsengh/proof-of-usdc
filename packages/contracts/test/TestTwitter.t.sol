@@ -3,17 +3,17 @@ pragma solidity ^0.8.0;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "@zk-email/contracts/DKIMRegistry.sol";
-import "../src/ProofOfTwitter.sol";
+import "../src/ProofOfUSDC.sol";
 import "../src/Verifier.sol";
 
-contract TwitterUtilsTest is Test {
+contract CoinbaseUtilsTest is Test {
     using StringUtils for *;
 
     address constant VM_ADDR = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D; // Hardcoded address of the VM from foundry
 
     Verifier proofVerifier;
     DKIMRegistry dkimRegistry;
-    ProofOfTwitter testVerifier;
+    ProofOfUSDC testVerifier;
 
     uint16 public constant packSize = 7;
 
@@ -36,7 +36,7 @@ contract TwitterUtilsTest is Test {
             bytes32(uint256(1983664618407009423875829639306275185491946247764487749439145140682408188330))
         );
 
-        testVerifier = new ProofOfTwitter(proofVerifier, dkimRegistry);
+        testVerifier = new ProofOfUSDC(proofVerifier, dkimRegistry);
 
         vm.stopPrank();
     }

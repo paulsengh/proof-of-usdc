@@ -6,10 +6,10 @@ include "@zk-email/zk-regex-circom/circuits/common/timestamp_regex.circom";
 include "@zk-email/circuits/helpers/email-nullifier.circom";
 include "@zk-email/circuits/email-verifier.circom";
 include "@zk-email/circuits/utils/regex.circom";
-include "./twitter-reset-regex.circom";
+include "./reward-amount-regex.circom";
 
 
-/// @title TwitterVerifier
+/// @title CoinbaseVerifier
 /// @notice Circuit to verify input email matches Coinbase USDC reward, and extract the reward amount
 /// @param maxHeadersLength Maximum length for the email header.
 /// @param maxBodyLength Maximum length for the email body.
@@ -22,7 +22,7 @@ include "./twitter-reset-regex.circom";
 /// @input rewardAmountIndex Index of the reward amount in the email body.
 /// @input address ETH address as identity commitment (to make it as part of the proof).
 /// @output pubkeyHash Poseidon hash of the pubkey - Poseidon(n/2)(n/2 chunks of pubkey with k*2 bits per chunk).
-template TwitterVerifier(maxHeadersLength, maxBodyLength, n, k) {
+template CoinbaseVerifier(maxHeadersLength, maxBodyLength, n, k) {
     signal input emailHeader[maxHeadersLength];
     signal input emailHeaderLength;
     signal input pubkey[k];
@@ -61,7 +61,7 @@ template TwitterVerifier(maxHeadersLength, maxBodyLength, n, k) {
     // REWARD AMOUNT REGEX
     // This computes the regex states on each character in the email body. For other apps, this is the
     // section that you want to swap out via using the zk-regex library.
-    signal (rewardAmountFound, rewardAmountReveal[maxHeadersLength]) <== TwitterResetRegex(maxHeadersLength)(emailHeader);
+    signal (rewardAmountFound, rewardAmountReveal[maxHeadersLength]) <== RewardAmountRegex(maxHeadersLength)(emailHeader);
     rewardAmountFound === 1;
 
     // Assert rewardAmountIndex < emailHeaderLength
@@ -77,4 +77,4 @@ template TwitterVerifier(maxHeadersLength, maxBodyLength, n, k) {
 }
 
 
-component main { public [ address ] } = TwitterVerifier(1024, 1536, 121, 17);
+component main { public [ address ] } = CoinbaseVerifier(1024, 1536, 121, 17);

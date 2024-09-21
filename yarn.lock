@@ -2977,7 +2977,7 @@ __metadata:
     "@types/pako": ^2.0.3
     "@zk-email/circuits": ^6.1.3
     "@zk-email/helpers": ^6.1.3
-    "@zk-email/zk-regex-circom": ^1.1.1
+    "@zk-email/zk-regex-circom": ^2.1.1
     babel-preset-jest: ^29.6.3
     chai: ^4.3.7
     circom_tester: ^0.0.19
@@ -4621,16 +4621,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zk-email/zk-regex-circom@npm:^1.1.1":
-  version: 1.3.0
-  resolution: "@zk-email/zk-regex-circom@npm:1.3.0"
-  dependencies:
-    commander: ^11.0.0
-    snarkjs: ^0.7.0
-  checksum: d7b5bf30e051d22990eeab90db55e399c2bb0e1255f827313a839e9d3205fb9355ff4f526097379570725566d8f57e4a5c4ba05d22a461fc2bde966544ca6cf5
-  languageName: node
-  linkType: hard
-
 "@zk-email/zk-regex-circom@npm:^2.1.0":
   version: 2.1.0
   resolution: "@zk-email/zk-regex-circom@npm:2.1.0"
@@ -4638,6 +4628,16 @@ __metadata:
     commander: ^11.0.0
     snarkjs: ^0.7.0
   checksum: 236ab75530eecf28daa55901bc1ddc163cb195872ccafcdc09cc693f23aa6db86970f58b5a85e2125a404b3294d2c7d1a111482bd1fef4ccb53e3cd8f03833c3
+  languageName: node
+  linkType: hard
+
+"@zk-email/zk-regex-circom@npm:^2.1.1":
+  version: 2.1.1
+  resolution: "@zk-email/zk-regex-circom@npm:2.1.1"
+  dependencies:
+    commander: ^11.0.0
+    snarkjs: ^0.7.0
+  checksum: 0306d4acea44d53d43b02917d42faf334307301c9aa6938552ecf81935a3458bbe951b76f8e99b6845de980ef4b7912e2d444a3558cb2bbf6ce17e5c3bc04019
   languageName: node
   linkType: hard
 

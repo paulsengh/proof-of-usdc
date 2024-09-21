@@ -4,7 +4,7 @@ import "forge-std/Test.sol";
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import "@zk-email/contracts/DKIMRegistry.sol";
-import "../src/ProofOfTwitter.sol";
+import "../src/ProofOfUSDC.sol";
 import "../src/Verifier.sol";
 
 contract Deploy is Script, Test {
@@ -39,8 +39,8 @@ contract Deploy is Script, Test {
             bytes32(uint256(14900978865743571023141723682019198695580050511337677317524514528673897510335))
         );
 
-        ProofOfTwitter testVerifier = new ProofOfTwitter(proofVerifier, dkimRegistry);
-        console.log("Deployed ProofOfTwitter at address: %s", address(testVerifier));
+        ProofOfUSDC testVerifier = new ProofOfUSDC(proofVerifier, dkimRegistry);
+        console.log("Deployed ProofOfUSDC at address: %s", address(testVerifier));
 
         vm.stopBroadcast();
     }

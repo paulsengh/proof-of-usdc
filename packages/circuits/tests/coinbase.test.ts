@@ -1,6 +1,6 @@
 import { buildPoseidon } from "circomlibjs";
 import { verifyDKIMSignature } from "@zk-email/helpers/dist/dkim";
-import { generateTwitterVerifierCircuitInputs } from "../helpers";
+import { generateCoinbaseVerifierCircuitInputs } from "../helpers";
 import { bigIntToChunkedBytes, bytesToBigInt, packedNBytesToString } from "@zk-email/helpers/dist/binary-format";
 
 const path = require("path");
@@ -8,7 +8,7 @@ const fs = require("fs");
 const wasm_tester = require("circom_tester").wasm;
 
 
-describe("Twitter email test", function () {
+describe("Coinbase email test", function () {
   jest.setTimeout(10 * 60 * 1000); // 10 minutes
 
   let rawEmail: Buffer;
@@ -17,22 +17,22 @@ describe("Twitter email test", function () {
 
   beforeAll(async () => {
     rawEmail = fs.readFileSync(
-      path.join(__dirname, "./emls/twitter-test.eml"),
+      path.join(__dirname, "./emls/coinbase-test.eml"),
       "utf8"
     );
 
-    circuit = await wasm_tester(path.join(__dirname, "../src/twitter.circom"), {
+    circuit = await wasm_tester(path.join(__dirname, "../src/coinbase.circom"), {
       // NOTE: We are running tests against pre-compiled circuit in the below path
       // You need to manually compile when changes are made to circuit if `recompile` is set to `false`.
       recompile: true,
-      output: path.join(__dirname, "../build/twitter"),
+      output: path.join(__dirname, "../build/coinbase"),
       include: [path.join(__dirname, "../node_modules"), path.join(__dirname, "../../../node_modules")],
     });
   });
 
-  it("should verify twitter email", async function () {
-    const twitterVerifierInputs = await generateTwitterVerifierCircuitInputs(rawEmail, ethAddress);
-    const witness = await circuit.calculateWitness(twitterVerifierInputs);
+  it("should verify coinbase email", async function () {
+    const coinbaseVerifierInputs = await generateCoinbaseVerifierCircuitInputs(rawEmail, ethAddress);
+    const witness = await circuit.calculateWitness(coinbaseVerifierInputs);
     await circuit.checkConstraints(witness);
     // Calculate DKIM pubkey hash to verify its same as the one from circuit output
     // We input pubkey as 121 * 17 chunk, but the circuit convert it to 242 * 9 chunk for hashing
@@ -54,28 +54,28 @@ describe("Twitter email test", function () {
     expect(witness[5]).toEqual(BigInt(ethAddress));
   });
 
-  it("should fail if the twitterUsernameIndex is invalid", async function () {
-    const twitterVerifierInputs = await generateTwitterVerifierCircuitInputs(rawEmail, ethAddress);
-    twitterVerifierInputs.rewardAmountIndex = (Number((await twitterVerifierInputs).rewardAmountIndex) + 1).toString();
+  it("should fail if the rewardAmountIndex is invalid", async function () {
+    const coinbaseVerifierInputs = await generateCoinbaseVerifierCircuitInputs(rawEmail, ethAddress);
+    coinbaseVerifierInputs.rewardAmountIndex = (Number((await coinbaseVerifierInputs).rewardAmountIndex) + 1).toString();
 
     expect.assertions(1);
 
     try {
-      const witness = await circuit.calculateWitness(twitterVerifierInputs);
+      const witness = await circuit.calculateWitness(coinbaseVerifierInputs);
       await circuit.checkConstraints(witness);
     } catch (error) {
       expect((error as Error).message).toMatch("Assert Failed");
     }
   })
 
-  it("should fail if the twitterUsernameIndex is out of bounds", async function () {
-    const twitterVerifierInputs = await generateTwitterVerifierCircuitInputs(rawEmail, ethAddress);
-    twitterVerifierInputs.rewardAmountIndex = (twitterVerifierInputs.emailHeaderLength! + 1).toString();
+  it("should fail if the rewardAmountIndex is out of bounds", async function () {
+    const coinbaseVerifierInputs = await generateCoinbaseVerifierCircuitInputs(rawEmail, ethAddress);
+    coinbaseVerifierInputs.rewardAmountIndex = (coinbaseVerifierInputs.emailHeaderLength! + 1).toString();
 
     expect.assertions(1);
 
     try {
-      const witness = await circuit.calculateWitness(twitterVerifierInputs);
+      const witness = await circuit.calculateWitness(coinbaseVerifierInputs);
       await circuit.checkConstraints(witness);
     } catch (error) {
       expect((error as Error).message).toMatch("Assert Failed");

@@ -4,7 +4,7 @@ import { generateEmailVerifierInputs } from "@zk-email/helpers/dist/input-genera
 export const REWARD_AMOUNT_PRESELECTOR = "You received ";
 export const TIMESTAMP_PRESELECTOR = "t=";
 
-export type ITwitterCircuitInputs = {
+export type ICoinbaseCircuitInputs = {
   emailHeader: string[];
   emailHeaderLength: string;
   pubkey: string[];
@@ -18,10 +18,10 @@ export type ITwitterCircuitInputs = {
   bodyHashIndex?: string | undefined;
 };
 
-export async function generateTwitterVerifierCircuitInputs(
+export async function generateCoinbaseVerifierCircuitInputs(
   email: string | Buffer,
   ethereumAddress: string
-): Promise<ITwitterCircuitInputs> {
+): Promise<ICoinbaseCircuitInputs> {
   const emailVerifierInputs = await generateEmailVerifierInputs(email, {
     ignoreBodyHashCheck: true,
   });
