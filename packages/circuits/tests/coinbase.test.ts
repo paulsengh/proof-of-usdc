@@ -42,13 +42,15 @@ describe("Coinbase email test", function () {
     const pubkeyChunked = bigIntToChunkedBytes(dkimResult.publicKey, 242, 9);
     const hash = poseidon(pubkeyChunked);
 
-
     // Assert pubkey hash
     expect(witness[1]).toEqual(poseidon.F.toObject(hash));
 
     // Verify the username is correctly extracted and packed form email body
-    const usernameInEmailBytes = new TextEncoder().encode("2.26").reverse(); // Circuit pack in reverse order
-    expect(witness[2]).toEqual(bytesToBigInt(usernameInEmailBytes));
+    const rewardAmountBytes = new TextEncoder().encode("2.26").reverse(); // Circuit pack in reverse order
+    expect(witness[2]).toEqual(bytesToBigInt(rewardAmountBytes));
+
+    const timestampBytes = new TextEncoder().encode("1725583952").reverse(); // Circuit pack in reverse order
+    expect(witness[4]).toEqual(bytesToBigInt(timestampBytes));
 
     // Check address public input
     expect(witness[5]).toEqual(BigInt(ethAddress));

@@ -36,7 +36,7 @@ template CoinbaseVerifier(maxHeadersLength, maxBodyLength, n, k) {
 
     // switch to use EmailNullifier (signature)
     signal output emailHeaderHash;
-    signal output timestampPacks[1];    
+    signal output timestamp;    
 
     component EV = EmailVerifier(maxHeadersLength, maxBodyLength, n, k, 1);
     EV.emailHeader <== emailHeader;
@@ -48,15 +48,17 @@ template CoinbaseVerifier(maxHeadersLength, maxBodyLength, n, k) {
     emailHeaderHash <== EmailNullifier(n, k)(signature);
 
     // TIMESTAMP REGEX
-    var maxTimestampLength = 10;
-
-    signal istimestampIndexValid <== LessThan(log2Ceil(maxHeadersLength))([timestampIndex, emailHeaderLength]);
-    istimestampIndexValid === 1;
 
     signal (timeStampFound, timestampReveal[maxHeadersLength]) <== TimestampRegex(maxHeadersLength)(emailHeader);
     timeStampFound === 1;
 
-    timestampPacks <== PackRegexReveal(maxHeadersLength, maxTimestampLength)(timestampReveal, timestampIndex);   
+    signal istimestampIndexValid <== LessThan(log2Ceil(maxHeadersLength))([timestampIndex, emailHeaderLength]);
+    istimestampIndexValid === 1;
+
+    var maxTimestampLength = 10;
+    signal timestampPacks[1] <== PackRegexReveal(maxHeadersLength, maxTimestampLength)(timestampReveal, timestampIndex);   
+    
+    timestamp <== timestampPacks[0];
 
     // REWARD AMOUNT REGEX
     // This computes the regex states on each character in the email body. For other apps, this is the
