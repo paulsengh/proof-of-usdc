@@ -8,7 +8,6 @@ import "@zk-email/contracts/utils/StringUtils.sol";
 import "./utils/NFTSVG.sol";
 import { Verifier } from "./Verifier.sol";
 
-
 contract ProofOfUSDC is ERC721Enumerable {
     using StringUtils for *;
     using NFTSVG for *;
@@ -73,7 +72,7 @@ contract ProofOfUSDC is ERC721Enumerable {
     /// Mint a token proving USDC holdings on Coinbase by verifying proof of email
     /// @param proof ZK proof of the circuit - a[2], b[4] and c[2] encoded in series
     /// @param signals Public signals of the circuit.
-    function mint(uint256[8] memory proof, uint256[3] memory signals) public {
+    function mint(uint256[8] memory proof, uint256[5] memory signals) public {
         // TODO no invalid signal check yet, which is fine since the zk proof does it
         // Checks: Verify proof and check signals
         // require(signals[0] == 1337, "invalid signals");
@@ -90,8 +89,9 @@ contract ProofOfUSDC is ERC721Enumerable {
 
         // Verify the DKIM public key hash stored on-chain matches the one used in circuit
         bytes32 dkimPublicKeyHashInCircuit = bytes32(signals[pubKeyHashIndexInSignals]);
-        require(dkimRegistry.isDKIMPublicKeyHashValid(domain, dkimPublicKeyHashInCircuit), "invalid dkim signature"); 
 
+        require(dkimRegistry.isDKIMPublicKeyHashValid(domain, dkimPublicKeyHashInCircuit), "invalid dkim signature"); 
+        
         // Verify RSA and proof
         require(
             verifier.verifyProof(
@@ -154,14 +154,14 @@ contract ProofOfUSDC is ERC721Enumerable {
         hasMinted[headerHashString] = true;
     }
 
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 tokenId
-    ) internal {
-        require(
-            from == address(0),
-            "Cannot transfer - VerifiedEmail is soulbound"
-        );
-    }
+    // function _beforeTokenTransfer(
+    //     address from,
+    //     address to,
+    //     uint256 tokenId
+    // ) internal {
+    //     require(
+    //         from == address(0),
+    //         "Cannot transfer - VerifiedEmail is soulbound"
+    //     );
+    // }
 }

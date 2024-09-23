@@ -13,13 +13,22 @@ describe("Coinbase email test", function () {
 
   let rawEmail: Buffer;
   let circuit: any;
-  const ethAddress = "0xCbcAC0388501E5317304D7Da1Ee3a082Df67336d";
+  const ethAddress = "0x3A5d6bc34c12f1C95AB6Ffe266629751c6388925";
 
   beforeAll(async () => {
     rawEmail = fs.readFileSync(
       path.join(__dirname, "./emls/coinbase-test.eml"),
       "utf8"
     );
+
+    // const dkimResult = await verifyDKIMSignature(rawEmail, "info.coinbase.com");
+    // console.log("DKIM Selector", dkimResult.selector.toString());
+    // console.log("DKIM PK", dkimResult.publicKey.toString());
+    // const poseidon = await buildPoseidon();
+    // const pubkeyChunked = bigIntToChunkedBytes(dkimResult.publicKey, 242, 9);
+    // const hash = poseidon(pubkeyChunked);
+    // console.log("hash", hash.toString());
+    // process.exit(0);
 
     circuit = await wasm_tester(path.join(__dirname, "../src/coinbase.circom"), {
       // NOTE: We are running tests against pre-compiled circuit in the below path

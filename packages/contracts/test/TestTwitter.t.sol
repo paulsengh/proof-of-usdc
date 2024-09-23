@@ -18,6 +18,7 @@ contract CoinbaseUtilsTest is Test {
     uint16 public constant packSize = 7;
 
     function setUp() public {
+         console.log("running set up");
         address owner = vm.addr(1);
 
         vm.startPrank(owner);
@@ -28,12 +29,8 @@ contract CoinbaseUtilsTest is Test {
         // These are the Poseidon hash of DKIM public keys for x.com
         // This was calcualted using https://github.com/zkemail/zk-email-verify/tree/main/packages/scripts
         dkimRegistry.setDKIMPublicKeyHash(
-            "x.com",
-            bytes32(uint256(14900978865743571023141723682019198695580050511337677317524514528673897510335))
-        );
-        dkimRegistry.setDKIMPublicKeyHash(
-            "x.com",
-            bytes32(uint256(1983664618407009423875829639306275185491946247764487749439145140682408188330))
+            "info.coinbase.com",
+            0x05289f31a838d16aa64b8bd0519d7de1add46548299208c6cf81914c2bf2ee8b
         );
 
         testVerifier = new ProofOfUSDC(proofVerifier, dkimRegistry);
@@ -41,81 +38,36 @@ contract CoinbaseUtilsTest is Test {
         vm.stopPrank();
     }
 
-    // function testMint() public {
-    //   testVerifier.mint
-    // }
-
-    // Should pass (note that there are extra 0 bytes, which are filtered out but should be noted in audits)
-    function testUnpack1() public {
-        uint256[] memory packedBytes = new uint256[](3);
-        packedBytes[0] = 29096824819513600;
-        packedBytes[1] = 0;
-        packedBytes[2] = 0;
-
-        // This is 0x797573685f670000000000000000000000000000000000000000000000000000
-        // packSize = 7
-        string memory byteList = StringUtils.convertPackedBytesToString(
-            packedBytes,
-            15,
-            packSize
-        );
-        // This is 0x797573685f67, since strings are internally arbitrary length arrays
-        string memory intended_value = "yush_g";
-
-        // We need to cast both to bytes32, which works since usernames can be at most 15, alphanumeric + '_' characters
-        // Note that this may not generalize to non-ascii characters.
-        // Weird characters are allowed in email addresses, see https://en.wikipedia.org/wiki/Email_address#Local-part
-        // See https://stackoverflow.com/a/2049510/3977093 -- you can even have international characters with RFC 6532
-        // Our regex should just disallow most of these emails, but they may end up taking more than two bytes
-        // ASCII should fit in 2 bytes but emails may not be ASCII
-        assertEq(bytes32(bytes(byteList)), bytes32(bytes(intended_value)));
-        assertEq(byteList, intended_value);
-        console.logString(byteList);
-    }
-
-    function testUnpack2() public {
-        uint256[] memory packedBytes = new uint256[](3);
-        packedBytes[0] = 28557011619965818;
-        packedBytes[1] = 1818845549;
-        packedBytes[2] = 0;
-        string memory byteList = StringUtils.convertPackedBytesToString(
-            packedBytes,
-            15,
-            packSize
-        );
-        string memory intended_value = "zktestemail";
-        assertEq(bytes32(bytes(byteList)), bytes32(bytes(intended_value)));
-        console.logString(byteList);
-    }
-
     // These proof and public input values are generated using scripts in packages/circuits/scripts/generate-proof.ts
     // The sample email in `/emls` is used as the input, but you will have different values if you generated your own zkeys
     function testVerifyTestEmail() public {
-        uint256[3] memory publicSignals;
+        uint256[5] memory publicSignals;
         publicSignals[
             0
-        ] = 1983664618407009423875829639306275185491946247764487749439145140682408188330;
-        publicSignals[1] = 131061634216091175196322682;
-        publicSignals[2] = 1163446621798851219159656704542204983322218017645;
+        ] = 2333336841929832288695187135562794652748341581135245042999961983084532002443;
+        publicSignals[1] = 909258290;
+        publicSignals[2] = 21583661305191324841426121921777127372562589899224514570760757141952266060127;
+        publicSignals[3] = 237100123279274017961777;
+        publicSignals[4] = 333204821482021981323833993247527139185603938597;
 
         uint256[2] memory proof_a = [
-            5797457318420687771988333280962152259257379892303951979169813170317326477434,
-            14189472520472776516417665921077060465051105690711006171274266938697420566951
+            3057140071645463068803395666774085651410249239124489757693501812525173604418,
+            20602774833663681228257066370150224823854434032258143485846081123147022628836
         ];
         // Note: you need to swap the order of the two elements in each subarray
         uint256[2][2] memory proof_b = [
             [
-                18921035250897022958148917928657494416170154529165080398233299677407236026846,
-                7543904973418857428529380479194238699124092071535155780217645796569464525390
+                17586084433881932154680876678821176747176209394575658089024092721957651673949,
+                20891119060854986265334316727663345716947374747894896245947335948863617835160
             ],
             [
-                16835983125386052464761616884519063200215669738277458297351574243466146108017,
-                16210421528119385263780767241818749780020239542889025688358560426656253630309
+                19033337379368813633371780117963183408079052436433694044245060001133342723319,
+                21220793086276706092286283335903567806024901247076895273354144292145147509111
             ]
         ];
         uint256[2] memory proof_c = [
-            19160114768014303520076125815800143167812482606052748549955911430674608929788,
-            18614452123455216414192085875877133967969502306927521502651735939542857695693
+            1642048984209998549334211057492506131155653089895231446647964692927514212591,
+            5783711735484874085130588165840345538370825620768009369676076142668816436541
         ];
 
         uint256[8] memory proof = [
