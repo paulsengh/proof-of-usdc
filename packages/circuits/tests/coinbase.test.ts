@@ -49,6 +49,8 @@ describe("Coinbase email test", function () {
     const rewardAmountBytes = new TextEncoder().encode("2.26").reverse(); // Circuit pack in reverse order
     expect(witness[2]).toEqual(bytesToBigInt(rewardAmountBytes));
 
+    // todo: insert header hash check here
+
     const timestampBytes = new TextEncoder().encode("1725583952").reverse(); // Circuit pack in reverse order
     expect(witness[4]).toEqual(bytesToBigInt(timestampBytes));
 
