@@ -28,15 +28,10 @@ contract Deploy is Script, Test {
         DKIMRegistry dkimRegistry = new DKIMRegistry(owner);
         console.log("Deployed DKIMRegistry at address: %s", address(dkimRegistry));
 
-        // x.com hash for selector dkim-202308
+        // info.coinbase.com hash for selector utmvq47cidwb6eo5dijoyabype4gxcbw
         dkimRegistry.setDKIMPublicKeyHash(
-            "x.com",
-            bytes32(uint256(1983664618407009423875829639306275185491946247764487749439145140682408188330))
-        );
-
-        dkimRegistry.setDKIMPublicKeyHash(
-            "x.com",
-            bytes32(uint256(14900978865743571023141723682019198695580050511337677317524514528673897510335))
+            "info.coinbase.com",
+            0x05289f31a838d16aa64b8bd0519d7de1add46548299208c6cf81914c2bf2ee8b
         );
 
         ProofOfUSDC testVerifier = new ProofOfUSDC(proofVerifier, dkimRegistry);

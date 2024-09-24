@@ -26,7 +26,7 @@ contract CoinbaseUtilsTest is Test {
         proofVerifier = new Verifier();
         dkimRegistry = new DKIMRegistry(owner);
 
-        // These are the Poseidon hash of DKIM public keys for x.com
+        // These are the Poseidon hash of DKIM public keys for info.coinbase.com
         // This was calcualted using https://github.com/zkemail/zk-email-verify/tree/main/packages/scripts
         dkimRegistry.setDKIMPublicKeyHash(
             "info.coinbase.com",
