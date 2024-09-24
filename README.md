@@ -123,17 +123,21 @@ To fix, update the `publicSignals` and `proof` in `test/TestCoinbase.t.sol` with
 #### Deployment Process
 
 1. Compile the .circom contracts into wasm and r1cs
+    - CWD: `packages/circuits`
     - `yarn build`
 2. Generate a proving key and verification key. 
+    - CWD: `packages/circuits/scripts`
     - `yarn ts-node dev-setup.ts`
 3. Deploy verifier contract
+    - CWD: `packages/contracts`
     - `PRIVATE_KEY=<pk-hex> forge script script/DeployCoinbase.s.sol:Deploy --rpc-url https://rpc2.sepolia.org --broadcast`
 4. Upload build files to AWS S3
+    - CWD: `packages/circuits/scripts`
     - `python3 upload_to_s3.py --build-dir <project-path>/proof-of-usdc/packages/circuits/build --circuit-name coinbase`  
 5. Generate a proof on AWS
+    - CWD: `packages/circuits/scripts`
     - `ts-node generate-proof.ts --email-file ../tests/emls/coinbase-test.eml --ethereum-address <your-eth-address>`
-6. Download the proof from AWS S3
-7. Verify the proof using the verification key
+6. Download the proof from AWS S3, and verify it on-chain
     - Call `_mint` in the `ProofOfUSDC` contract
 
 Currently deployed contracts on Sepolia:
