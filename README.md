@@ -133,7 +133,7 @@ To fix, update the `publicSignals` and `proof` in `test/TestCoinbase.t.sol` with
     - `PRIVATE_KEY=<pk-hex> forge script script/DeployCoinbase.s.sol:Deploy --rpc-url https://rpc2.sepolia.org --broadcast`
 4. Upload build files to AWS S3
     - CWD: `packages/circuits/scripts`
-    - `python3 upload_to_s3.py --build-dir /build --circuit-name coinbase`  
+    - `python3 upload_to_s3.py`  
 5. Generate a proof on AWS
     - CWD: `packages/circuits/scripts`
     - `ts-node generate-proof.ts --email-file ../tests/emls/coinbase-test.eml --ethereum-address <your-eth-address>`

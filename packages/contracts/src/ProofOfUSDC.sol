@@ -154,14 +154,14 @@ contract ProofOfUSDC is ERC721Enumerable {
         hasMinted[headerHashString] = true;
     }
 
-    // function _beforeTokenTransfer(
-    //     address from,
-    //     address to,
-    //     uint256 tokenId
-    // ) internal {
-    //     require(
-    //         from == address(0),
-    //         "Cannot transfer - VerifiedEmail is soulbound"
-    //     );
-    // }
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 tokenId
+    ) internal {
+        require(
+            from == address(0),
+            "Cannot transfer - VerifiedEmail is soulbound"
+        );
+    }
 }
