@@ -2,8 +2,8 @@
   "name": "@zk-email/twitter-verifier-app",
   "version": "4.0.0",
   "dependencies": {
-    "@proof-of-twitter/circuits": "workspace:^",
-    "@proof-of-twitter/contracts": "workspace:^",
+    "@proof-of-usdc/circuits": "workspace:^",
+    "@proof-of-usdc/contracts": "workspace:^",
     "@rainbow-me/rainbowkit": "^1.3.3",
     "@react-oauth/google": "^0.12.1",
     "@zk-email/helpers": "^6.1.3",

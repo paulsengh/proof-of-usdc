@@ -1,16 +1,8 @@
-# Proof of Twitter
+# Proof of USDC
 
-Prove ownership of a X (Twitter) account using an email from Twitter, and mint an NFT with your Twitter username.
+You can use an email from Coinbase that contains `Congrats! You received USDC rewards` to generate a ZK proof that you hold USDC on Coinbase.
 
-This project is a demonstration of ZK Email. You can fork it to build other projects using ZK Email.
-
-Try it here: https://twitter.prove.email/
-
-## How it works
-
-You can use an email from Twitter that contains `email was meant for @username` to generate a ZK proof that you own the Twitter account `@username`.
-
-This ZK proof can be used to mint an NFT corresponding to your username in the `ProofOfTwitter` contract.
+This ZK proof can be used to mint an NFT corresponding to your reward amount in the `ProofOfUSDC` contract.
 
 ## Running locally
 
@@ -36,20 +28,20 @@ If you want to generate the proof locally outside browser, follow the instructio
 
 ### Circuits
 
-Circom circuits are located in `packages/circuits`, the main circuit being [twitter.circom](packages/circuits/twitter.circom). TwitterVerifier circuit use [EmailVerifier](https://github.com/zkemail/zk-email-verify/blob/main/packages/circuits/email-verifier.circom) circuit from `@zk-email/circuits`.
+Circom circuits are located in `packages/circuits`, the main circuit being [coinbase.circom](packages/circuits/coinbase.circom). CoinbaseVerifier circuit use [EmailVerifier](https://github.com/zkemail/zk-email-verify/blob/main/packages/circuits/email-verifier.circom) circuit from `@zk-email/circuits`.
 
-The regex circuit required to parse/extract Twitter username can be generated using [https://github.com/zkemail/zk-regex](zk-regex) package.
+The regex circuit required to parse/extract USDC reward amount can be generated using [https://github.com/zkemail/zk-regex](zk-regex) package.
 
-#### » Generate Twitter Regex Circuit
+#### » Generate Coinbase Regex Circuit
 
 ```bash
 # CWD = packages/circuits
 yarn generate-regex
 ```
 
-This will generate `components/twitter_reset.circom` using the config in `components/twitter_reset.json`. This `twitter_reset.circom` is imported in `twitter.circom`.
+This will generate `components/reward_amount_regex.circom` using the config in `components/reward_amount.json`. This `reward_amount_regex.circom` is imported in `coinbase.circom`.
 
-Note that `twitter_reset.circom` is already in repo, so this step is optional.
+Note that `reward_amount_regex.circom` is already in repo, so this step is optional.
 
 #### » Build the circuit
 
@@ -58,7 +50,7 @@ Note that `twitter_reset.circom` is already in repo, so this step is optional.
 yarn build
 ```
 
-This will create `twitter.wasm` and other files in `packages/circuits/build` directory.
+This will create `coinbase.wasm` and other files in `packages/circuits/build` directory.
 
 You can test the circuit using
 
@@ -87,7 +79,7 @@ For browser use, the script also compresses the chunked zkeys.
 
 To upload to S3, the below script can be used.
 ```bash
-python3 upload_to_s3.py --build-dir <project-path>/proof-of-twitter/packages/circuits/build --circuit-name twitter 
+python3 upload_to_s3.py --build-dir <project-path>/proof-of-usdc/packages/circuits/build --circuit-name coinbase 
 ```
 
 There are helper functions in `@zk-email/helpers` package to download and decompress the zkeys in the browser.
@@ -97,7 +89,7 @@ There are helper functions in `@zk-email/helpers` package to download and decomp
 
 ```bash
 # CWD = packages/circuits/scripts
-ts-node generate-proof.ts --email-file ../tests/emls/twitter-test.eml --ethereum-address <your-eth-address>
+ts-node generate-proof.ts --email-file ../tests/emls/coinbase-test.eml --ethereum-address <your-eth-address>
 ```
 
 This will generate input + witness using the given email file and Ethereum address, and prove using the generated zkey.
@@ -108,7 +100,7 @@ The script also verify the generated proof are correct. You can use the proof an
 
 ### Contracts
 
-The solidity contracts can be found in `packages/contracts`. The main contract is [ProofOfTwitter.sol](packages/contracts/src/ProofOfTwitter.sol).
+The solidity contracts can be found in `packages/contracts`. The main contract is [ProofOfUSDC.sol](packages/contracts/src/ProofOfUSDC.sol).
 
 #### You can build the contracts using
 
@@ -126,28 +118,41 @@ yarn test
 
 Note that the tests will not pass if you have generated your own zkeys and `Verifier.sol` as you would have used a different Entropy.
 
-To fix, update the `publicSignals` and `proof` in `test/TestTwitter.t.sol` with the values from `input.json` and `public.json` generated from the above steps. (Remember that you need to flip items in the nested array of `pi_b`).
+To fix, update the `publicSignals` and `proof` in `test/TestCoinbase.t.sol` with the values from `input.json` and `public.json` generated from the above steps. (Remember that you need to flip items in the nested array of `pi_b`).
 
-#### Deploy contracts
+#### Deployment Process
 
-```bash
-# CWD = packages/contracts
-PRIVATE_KEY=<pk-hex> forge script script/DeployTwitter.s.sol:Deploy -vvvv --rpc-url https://rpc2.sepolia.org --broadcast
-```
+1. Compile the .circom contracts into wasm and r1cs
+    - CWD: `packages/circuits`
+    - `yarn build`
+2. Generate a proving key and verification key. 
+    - CWD: `packages/circuits/scripts`
+    - `yarn ts-node dev-setup.ts`
+3. Deploy verifier contract
+    - CWD: `packages/contracts`
+    - `PRIVATE_KEY=<pk-hex> forge script script/DeployCoinbase.s.sol:Deploy --rpc-url https://rpc2.sepolia.org --broadcast`
+4. Upload build files to AWS S3
+    - CWD: `packages/circuits/scripts`
+    - `python3 upload_to_s3.py`  
+5. Generate a proof on AWS
+    - CWD: `packages/circuits/scripts`
+    - `ts-node generate-proof.ts --email-file ../tests/emls/coinbase-test.eml --ethereum-address <your-eth-address>`
+6. Download the proof from AWS S3, and verify it on-chain
+    - Call `_mint` in the `ProofOfUSDC` contract
 
 Currently deployed contracts on Sepolia:
 
 ```
-  Deployed Verifier at address: 0x6096601EB33d636b0e21593469920d06647FA955
-  Deployed DKIMRegistry at address: 0x993873c1b46c756b60089cBbE3baEEC9Fa292e9f
-  Deployed ProofOfTwitter at address: 0x86D390fDed54447fD244eD0718dbFCFCcbbA7edc
+  Deployed Verifier at address: 
+  Deployed DKIMRegistry at address: 
+  Deployed ProofOfUSDC at address: 
 ```
 
 ### UI
 
 If you want to update the UI based on your own zkeys and contracts, please make the below changes:
 
-- Set the `VITE_CONTRACT_ADDRESS` in `packages/app/.env`. This is the address of the `ProofOfTwitter` contract.
+- Set the `VITE_CONTRACT_ADDRESS` in `packages/app/.env`. This is the address of the `ProofOfUSDC` contract.
 - Set `VITE_CIRCUIT_ARTIFACTS_URL` in `packages/app/.env` to the URL of the directory containing circuit artifacts (compressed partial zkeys, wasm, verifier, etc). You can run a local server in `circuits/build/artifacts` directory and use that URL or upload to S3 (or similar) and use that public URL/
 
 

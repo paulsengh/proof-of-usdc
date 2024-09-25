@@ -1,5 +1,5 @@
 {
-  "name": "@proof-of-twitter/contracts",
+  "name": "@proof-of-usdc/contracts",
   "version": "4.0.0",
   "scripts": {
     "build": "forge compile",
