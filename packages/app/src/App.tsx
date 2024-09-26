@@ -1,8 +1,9 @@
+import React from "react";
 import { MainPage } from "./pages/MainPage";
 import "../index.css";
-import { Providers } from "./Providers";
+import Providers from "./Providers";
 
-const App = () => {
+const App: React.FC = () => {
   return (
     <Providers>
       <MainPage />

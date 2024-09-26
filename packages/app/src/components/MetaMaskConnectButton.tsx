@@ -1,5 +1,21 @@
 import { useState } from "react";
 
+interface EthereumProvider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on: (eventName: string, callback: (...args: any[]) => void) => void;
+  removeListener: (
+    eventName: string,
+    callback: (...args: any[]) => void
+  ) => void;
+  // Add any other methods or properties you need from the Ethereum provider
+}
+
+declare global {
+  interface Window {
+    ethereum?: EthereumProvider;
+  }
+}
+
 const MetaMaskConnectButton = ({ onWalletConnect }: any) => {
   const [account, setAccount] = useState("");
 
@@ -7,9 +23,9 @@ const MetaMaskConnectButton = ({ onWalletConnect }: any) => {
     if (typeof window.ethereum !== "undefined") {
       try {
         await window.ethereum.request({ method: "eth_requestAccounts" });
-        const accounts = await window.ethereum.request({
+        const accounts = (await window.ethereum.request({
           method: "eth_accounts",
-        });
+        })) as any;
         setAccount(accounts[0]);
         onWalletConnect(accounts[0]); // Pass the address up to the parent
       } catch (error) {

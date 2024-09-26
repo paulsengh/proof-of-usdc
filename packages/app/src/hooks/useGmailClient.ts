@@ -1,19 +1,3 @@
-// import { google } from "googleapis";
-
-// const gmail = google.gmail("v1");
-
-/* const auth = new google.auth.OAuth2(
-  'process.env.NEXT_PUBLIC_GOOGLE_AUTH_CLIENT_ID',   
-  'process.env.NEXT_PUBLIC_GOOGLE_AUTH_CLIENT_SECRET',
-  'http://localhost:3002'  
-);
-
-auth.setCredentials({ access_token: accessToken });  */
-
-/*
- * users.getProfile
- */
-
 export async function fetchProfile(accessToken: string): Promise<string> {
   const url = `https://www.googleapis.com/gmail/v1/users/me/profile`;
 
@@ -49,87 +33,6 @@ export type GmailMessagesListResponse = {
 };
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/* export async function fetchEmailsWithSubject(
-  auth: any,
-  subject: string
-): Promise<any[]> {
-  let pageToken: string | undefined;
-  let allMessages: any[] = [];
-  let retryCount = 0;
-  const maxRetries = 5;
-
-  const query = `subject:(${subject})`;
-
-  do {
-    try {
-      const res = await gmail.users.messages.list({
-        auth: auth,
-        userId: "me",
-        q: query,
-        maxResults: 500,
-        pageToken: pageToken,
-      });
-
-      const messages = res.data.messages || [];
-      allMessages = allMessages.concat(messages);
-      pageToken = res.data.nextPageToken;
-
-
-      if (messages.length > 0) {
-        const batchSize = 50;
-        for (let i = 0; i < messages.length; i += batchSize) {
-          const batch = messages.slice(i, i + batchSize);
-          const batchResults = await fetchMessagesBatch(
-            auth,
-            batch.map((m) => m.id)
-          );
-
-          console.log(`Fetched ${batchResults.length} messages`);
-        }
-      }
-
-      retryCount = 0; 
-      await delay(1000); 
-    } catch (error: any) {
-      if (error.code === 429) {
-        retryCount++;
-        const waitTime = Math.pow(2, retryCount) * 1000;
-        console.log(`Rate limited. Retrying in ${waitTime}ms`);
-        await delay(waitTime);
-      } else {
-        console.error("The API returned an error:", error);
-        break;
-      }
-
-      if (retryCount >= maxRetries) {
-        console.error("Max retries reached. Stopping.");
-        break;
-      }
-    }
-  } while (pageToken);
-
-  return allMessages;
-} */
-
-/* async function fetchMessagesBatch(auth: any, ids: string[]): Promise<any[]> {
-  const batch = ids.map((id) => ({
-    requestBody: {
-      ids: [id],
-      format: "metadata",
-      metadataHeaders: ["Subject"],
-    },
-    userId: "me",
-  }));
-
-  const res = await gmail.users.messages.batchGet({
-    auth: auth,
-    userId: "me",
-    requestBody: { ids },
-  });
-
-  return res.data.messages || [];
-} */
 
 export async function fetchEmailList(
   accessToken: string,
