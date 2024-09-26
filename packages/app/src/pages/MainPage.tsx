@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import MetaMaskConnectButton from "../components/MetaMaskConnectButton";
 // import GoogleSignInButton from "../components/GoogleSignInButton";
 import { formatDateTime } from "../helpers/dateTimeFormat";
@@ -11,8 +11,28 @@ import {
   fetchEmailsRaw,
   RawEmailResponse,
 } from "../hooks/useGmailClient";
+import abi from "../abi.json";
 import { convertTimestampToDate } from "../utils/convertTimestampToDate";
 import { parseEmailContent } from "../utils/parseEmailContent";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
+const { ethers } = require("ethers");
+import { generateCoinbaseVerifierCircuitInputs } from "../../../../packages/circuits/helpers/generate-inputs";
+const snarkjs = require("snarkjs");
+
+import emlContent from "../coinbase-test.eml?raw";
+
+// Configure AWS S3 Client
+const s3Client = new S3Client({
+  region: import.meta.env.VITE_AWS_REGION,
+  credentials: {
+    accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID,
+    secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY,
+  },
+});
 
 export const MainPage: React.FC<{}> = (props) => {
   const [isWalletConnected, setIsWalletConnected] = useState(false);
@@ -24,8 +44,14 @@ export const MainPage: React.FC<{}> = (props) => {
   const [isProofVerified, setIsProofVerified] = useState(false);
   const [isFetchEmailLoading, setIsFetchEmailLoading] = useState(false);
   const [fetchedEmails, setFetchedEmails] = useState<RawEmailResponse[]>([]);
+  const [exampleEmailContent, setExampleEmailContent] = useState("");
 
   console.log("fetchedEmails: ", fetchedEmails);
+
+  useEffect(() => {
+    console.log("emlContent: ", emlContent);
+    setExampleEmailContent(emlContent);
+  }, []);
 
   const {
     googleAuthToken,
@@ -85,7 +111,148 @@ export const MainPage: React.FC<{}> = (props) => {
     }
   };
 
-  const handleProofStep = async () => {
+  const handleProofStep = useCallback(async () => {
+    setNextProofStep(true);
+    setGeneratingProof(true);
+
+    try {
+      const emailContent = exampleEmailContent;
+      console.log("handleProofStep emailContent: ", emailContent);
+
+      // Step 4: Upload build files to AWS S3 using v3 SDK
+      const buildFiles = [
+        "coinbase.wasm",
+        "coinbase.zkey",
+        "coinbase.vkey.json",
+      ];
+      for (const file of buildFiles) {
+        const fileContent = await fetch(`/build/${file}`).then((res) =>
+          res.arrayBuffer()
+        );
+        const uploadCommand = new PutObjectCommand({
+          Bucket: import.meta.env.VITE_AWS_BUCKET,
+          Key: `build/${file}`,
+          Body: Buffer.from(fileContent),
+          ACL: "public-read",
+        });
+        await s3Client.send(uploadCommand);
+      }
+
+      console.log("handleProofStep buildFiles: ", buildFiles);
+
+      console.log(
+        "handleProofStep Buffer.from(emailContent): ",
+        Buffer.from(emailContent)
+      );
+      console.log("handleProofStep walletAddress: ", walletAddress);
+      // Step 5: Generate a proof
+      const circuitInputs = await generateCoinbaseVerifierCircuitInputs(
+        Buffer.from(emailContent),
+        walletAddress
+      );
+
+      console.log("handleProofStep circuitInputs: ", circuitInputs);
+
+      const wasmArrayBuffer = await fetch("/build/coinbase.wasm").then((res) =>
+        res.arrayBuffer()
+      );
+
+      console.log("handleProofStep wasmArrayBuffer: ", wasmArrayBuffer);
+      const witnessCalculator = await snarkjs.wtns.initialize(
+        new Uint8Array(wasmArrayBuffer)
+      ); // This is incorrect as of now
+      const witnessBuffer = await witnessCalculator.calculateWTNSBin(
+        circuitInputs,
+        0
+      );
+
+      // Step 7: Upload witness to AWS S3
+      const uploadWitnessCommand = new PutObjectCommand({
+        Bucket: import.meta.env.VITE_AWS_BUCKET,
+        Key: "build/input.wtns",
+        Body: Buffer.from(witnessBuffer),
+        ACL: "public-read",
+      });
+      await s3Client.send(uploadWitnessCommand);
+
+      console.log("Witness generated and uploaded to S3");
+
+      // Step 8: Generate proof
+      const { proof, publicSignals } = await snarkjs.groth16.prove(
+        "/build/coinbase.zkey",
+        "/build/input.wtns"
+      );
+
+      console.log("Proof generated:", proof);
+      console.log("Public signals:", publicSignals);
+      /* const { proof, publicSignals } = await snarkjs.groth16.fullProve(
+        circuitInputs,
+        "/build/coinbase.wasm",
+        "/build/coinbase.zkey"
+      ); */
+
+      console.log("handleProofStep proof: ", proof);
+      console.log("handleProofStep publicSignals: ", publicSignals);
+
+      // Upload proof to S3 using v3 SDK
+      const proofUploadCommand = new PutObjectCommand({
+        Bucket: import.meta.env.VITE_AWS_BUCKET,
+        Key: "proofs/latest_proof.json",
+        Body: JSON.stringify({ proof, publicSignals }),
+        ACL: "public-read",
+      });
+      await s3Client.send(proofUploadCommand);
+
+      // Step 6: Download the proof from AWS S3 and verify it on-chain
+      const proofDownloadCommand = new GetObjectCommand({
+        Bucket: import.meta.env.VITE_AWS_BUCKET,
+        Key: "proofs/latest_proof.json",
+      });
+      const proofData = await s3Client.send(proofDownloadCommand);
+
+      const proofBody = await proofData.Body?.transformToString();
+      const { proof: downloadedProof, publicSignals: downloadedPublicSignals } =
+        JSON.parse(proofBody!);
+
+      // Connect to the Ethereum network
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+
+      // Load the ProofOfUSDC contract
+      const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS!;
+      const contractABI = [abi];
+      const contract = new ethers.Contract(
+        contractAddress,
+        contractABI,
+        signer
+      ) as any; /* ethers.Contract & ProofOfUSDCABI */
+
+      // Call the mint function to verify the proof on-chain
+      const tx = await contract.mint(
+        [
+          downloadedProof.pi_a[0],
+          downloadedProof.pi_a[1],
+          downloadedProof.pi_b[0][1],
+          downloadedProof.pi_b[0][0],
+          downloadedProof.pi_b[1][1],
+          downloadedProof.pi_b[1][0],
+          downloadedProof.pi_c[0],
+          downloadedProof.pi_c[1],
+        ],
+        downloadedPublicSignals
+      );
+
+      await tx.wait();
+
+      setIsProofVerified(true);
+    } catch (error) {
+      console.error("Error generating and uploading proof:", error);
+    } finally {
+      setGeneratingProof(false);
+    }
+  }, [fetchedEmails, walletAddress, exampleEmailContent]);
+
+  /* const handleProofStep = async () => {
     setNextProofStep(true);
     setGeneratingProof(true);
 
@@ -94,7 +261,7 @@ export const MainPage: React.FC<{}> = (props) => {
 
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      /* const response = await fetch("/api/generate-proof", {
+      const response = await fetch("/api/generate-proof", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -110,14 +277,14 @@ export const MainPage: React.FC<{}> = (props) => {
       }
 
       const result = await response.json();
-      console.log("Proof generated and uploaded:", result); */
+      console.log("Proof generated and uploaded:", result);
     } catch (error) {
       console.error("Error generating and uploading proof:", error);
     } finally {
       setGeneratingProof(false);
       setIsProofVerified(true);
     }
-  };
+  }; */
 
   return (
     <div className="bg-[#E7F0F0] min-h-screen p-8">

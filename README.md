@@ -72,18 +72,17 @@ This will generate `zkey` files, `vkey.json` in `build` directory, and Solidity 
 
 > Note: We are using a custom fork of `snarkjs` which generated **chunked zkeys**. Chunked zkeys make it easier to use in browser, especially since we have large circuit. You can switch to regular `snarkjs` in `package.json` if you don't want to use chunked zkeys.
 
+For browser use, the script also compresses the chunked zkeys.
 
-For browser use, the script also compresses the chunked zkeys. 
-
-**The compressed zkeys, vkey, wasm are copied to /build/artifacts` directory. This directory can be served using a local server or uploaded to S3 for use in the browser.
+\*\*The compressed zkeys, vkey, wasm are copied to /build/artifacts` directory. This directory can be served using a local server or uploaded to S3 for use in the browser.
 
 To upload to S3, the below script can be used.
+
 ```bash
-python3 upload_to_s3.py --build-dir <project-path>/proof-of-usdc/packages/circuits/build --circuit-name coinbase 
+python3 upload_to_s3.py --build-dir <project-path>/proof-of-usdc/packages/circuits/build --circuit-name coinbase
 ```
 
 There are helper functions in `@zk-email/helpers` package to download and decompress the zkeys in the browser.
-
 
 #### » Generate Input and Proof
 
@@ -123,29 +122,29 @@ To fix, update the `publicSignals` and `proof` in `test/TestCoinbase.t.sol` with
 #### Deployment Process
 
 1. Compile the .circom contracts into wasm and r1cs
-    - CWD: `packages/circuits`
-    - `yarn build`
-2. Generate a proving key and verification key. 
-    - CWD: `packages/circuits/scripts`
-    - `yarn ts-node dev-setup.ts`
+   - CWD: `packages/circuits`
+   - `yarn build`
+2. Generate a proving key and verification key.
+   - CWD: `packages/circuits/scripts`
+   - `yarn ts-node dev-setup.ts`
 3. Deploy verifier contract
-    - CWD: `packages/contracts`
-    - `PRIVATE_KEY=<pk-hex> forge script script/DeployCoinbase.s.sol:Deploy --rpc-url https://rpc2.sepolia.org --broadcast`
+   - CWD: `packages/contracts`
+   - `PRIVATE_KEY=<pk-hex> forge script script/DeployCoinbase.s.sol:Deploy --rpc-url https://rpc2.sepolia.org --broadcast`
 4. Upload build files to AWS S3
-    - CWD: `packages/circuits/scripts`
-    - `python3 upload_to_s3.py`  
+   - CWD: `packages/circuits/scripts`
+   - `python3 upload_to_s3.py`
 5. Generate a proof on AWS
-    - CWD: `packages/circuits/scripts`
-    - `ts-node generate-proof.ts --email-file ../tests/emls/coinbase-test.eml --ethereum-address <your-eth-address>`
+   - CWD: `packages/circuits/scripts`
+   - `ts-node generate-proof.ts --email-file ../tests/emls/coinbase-test.eml --ethereum-address <your-eth-address>`
 6. Download the proof from AWS S3, and verify it on-chain
-    - Call `_mint` in the `ProofOfUSDC` contract
+   - Call `_mint` in the `ProofOfUSDC` contract
 
 Currently deployed contracts on Sepolia:
 
 ```
-  Deployed Verifier at address: 
-  Deployed DKIMRegistry at address: 
-  Deployed ProofOfUSDC at address: 
+  Deployed Verifier at address:
+  Deployed DKIMRegistry at address:
+  Deployed ProofOfUSDC at address:
 ```
 
 ### UI
@@ -154,7 +153,6 @@ If you want to update the UI based on your own zkeys and contracts, please make 
 
 - Set the `VITE_CONTRACT_ADDRESS` in `packages/app/.env`. This is the address of the `ProofOfUSDC` contract.
 - Set `VITE_CIRCUIT_ARTIFACTS_URL` in `packages/app/.env` to the URL of the directory containing circuit artifacts (compressed partial zkeys, wasm, verifier, etc). You can run a local server in `circuits/build/artifacts` directory and use that URL or upload to S3 (or similar) and use that public URL/
-
 
 ## History
 
