@@ -1,6 +1,7 @@
 {
   "include": [".", "types.d.ts"],
   "exclude": ["tests", "dist", "**.test.*"],
+  "allowImportingTsExtensions": true,
   "compilerOptions": {
     "outDir": "dist",
     "skipLibCheck": true,
