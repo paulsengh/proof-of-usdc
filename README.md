@@ -133,7 +133,7 @@ To fix, update the `publicSignals` and `proof` in `test/TestCoinbase.t.sol` with
     - `ZKEY_ENTROPY=<random-number> ZKEY_BEACON=<random-hex> yarn ts-node dev-setup.ts`
 4. Upload build files to AWS S3
     - CWD: `packages/circuits/scripts`
-    - `python3 upload_to_s3.py`  
+    - `python3 upload_to_s3.py --build-dir ../circuits/build --circuit-name coinbase`  
 5. Update inputs + proof, and run test cases on contract
     - CWD: `packages/contracts`
     - `yarn test`
