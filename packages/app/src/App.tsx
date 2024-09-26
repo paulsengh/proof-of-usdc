@@ -1,8 +1,13 @@
 import { MainPage } from "./pages/MainPage";
 import "../index.css";
+import { Providers } from "./Providers";
 
 const App = () => {
-  return <MainPage />;
+  return (
+    <Providers>
+      <MainPage />
+    </Providers>
+  );
 };
 
 export default App;

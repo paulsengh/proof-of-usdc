@@ -1,5 +1,4 @@
-import { createContext } from 'react'
-
+import { createContext } from "react";
 
 interface GoogleAuthValues {
   googleAuthToken: any | null;
@@ -19,6 +18,4 @@ const defaultValues: GoogleAuthValues = {
   googleLogOut: () => {},
 };
 
-const GoogleAuthContext = createContext<GoogleAuthValues>(defaultValues)
-
-export default GoogleAuthContext
+export const GoogleAuthContext = createContext<GoogleAuthValues>(defaultValues);

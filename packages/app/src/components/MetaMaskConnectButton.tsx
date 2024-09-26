@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
-const MetaMaskConnectButton = () => {
+const MetaMaskConnectButton = ({ onWalletConnect }: any) => {
   const [account, setAccount] = useState("");
 
   const connectWallet = async () => {
@@ -11,6 +11,7 @@ const MetaMaskConnectButton = () => {
           method: "eth_accounts",
         });
         setAccount(accounts[0]);
+        onWalletConnect(accounts[0]); // Pass the address up to the parent
       } catch (error) {
         console.error("Failed to connect to MetaMask:", error);
       }
@@ -37,10 +38,12 @@ const MetaMaskConnectButton = () => {
 
   return (
     <div className="flex items-center justify-between w-full">
-      <span className="text-sm font-semibold">1. CONNECT YOUR WALLET</span>
+      <span className="text-sm font-geist-mono-medium font-semibold">
+        1. CONNECT YOUR WALLET
+      </span>
       <button
         onClick={connectWallet}
-        className="px-4 py-2 text-white bg-[#5AA9A1] rounded-md hover:bg-[#4A8A82] transition-colors"
+        className="px-4 py-2 text-white bg-[#217F90] rounded-md hover:bg-[#4A8A82] transition-colors"
       >
         Connect Wallet
       </button>

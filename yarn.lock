@@ -4657,6 +4657,7 @@ __metadata:
     jest-junit: ^16.0.0
     jsdom-worker: ^0.3.0
     lodash: ^4.17.21
+    lucide-react: ^0.446.0
     madge: ^6.0.0
     postcss: ^8.4.47
     puppeteer: 18.1
@@ -10297,6 +10298,15 @@ __metadata:
   version: 7.18.3
   resolution: "lru-cache@npm:7.18.3"
   checksum: e550d772384709deea3f141af34b6d4fa392e2e418c1498c078de0ee63670f1f46f5eee746e8ef7e69e1c895af0d4224e62ee33e66a543a14763b0f2e74c1356
+  languageName: node
+  linkType: hard
+
+"lucide-react@npm:^0.446.0":
+  version: 0.446.0
+  resolution: "lucide-react@npm:0.446.0"
+  peerDependencies:
+    react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0-rc
+  checksum: 5cd918355c1fbed8b2bb8152aa9eb1e7827be9ecb4560ef078fb8fc7bdd639ac41e96695ec2cd229e713190f43e82da6e92805162a9617a9bad76d5ff7cc2abe
   languageName: node
   linkType: hard
 
