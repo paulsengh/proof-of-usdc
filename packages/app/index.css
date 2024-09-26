@@ -3,10 +3,33 @@
 @tailwind utilities;
 
 body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@font-face {
+  font-family: "GeistSans";
+  src: url("./fonts/GeistVF.woff") format("woff");
+  font-weight: 100 900;
+}
+
+@font-face {
+  font-family: "GeistMono";
+  src: url("./fonts/GeistMonoVF.woff") format("woff");
+  font-weight: 100 900;
+}
+
+.font-geist-sans {
+  --font-geist-sans: "GeistSans";
+}
+
+.font-geist-mono {
+  --font-geist-mono: "GeistMono";
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
 }

@@ -12,10 +12,6 @@ import {
   verifyProof,
 } from "@zk-email/helpers/dist/chunked-zkey";
 import { abi } from "../abi.json";
-import {
-  generateTwitterVerifierCircuitInputs,
-  ITwitterCircuitInputs,
-} from "@proof-of-twitter/circuits/helpers";
 import { LabeledTextArea } from "../components/LabeledTextArea";
 import DragAndDropTextBox from "../components/DragAndDropTextBox";
 import { SingleLineInput } from "../components/SingleLineInput";
