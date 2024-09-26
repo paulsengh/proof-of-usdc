@@ -21,6 +21,7 @@ export const MainPage: React.FC<{}> = (props) => {
   const [nextEmailStep, setNextEmailStep] = useState(false);
   const [nextProofStep, setNextProofStep] = useState(false);
   const [generatingProof, setGeneratingProof] = useState(false);
+  const [isProofVerified, setIsProofVerified] = useState(false);
   const [isFetchEmailLoading, setIsFetchEmailLoading] = useState(false);
   const [fetchedEmails, setFetchedEmails] = useState<RawEmailResponse[]>([]);
 
@@ -91,7 +92,10 @@ export const MainPage: React.FC<{}> = (props) => {
     try {
       const emailContent = fetchedEmails[0].decodedContents;
 
-      const response = await fetch("/api/generate-and-upload-proof", {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Commented-out code for the fetch request
+      /* const response = await fetch("/api/generate-and-upload-proof", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -107,14 +111,12 @@ export const MainPage: React.FC<{}> = (props) => {
       }
 
       const result = await response.json();
-      console.log("Proof generated and uploaded:", result);
-
-      // Handle successful proof generation and upload (e.g., update UI, show success message)
+      console.log("Proof generated and uploaded:", result); */
     } catch (error) {
       console.error("Error generating and uploading proof:", error);
-      // Handle error (e.g., show error message to user)
     } finally {
       setGeneratingProof(false);
+      setIsProofVerified(true);
     }
   };
 
@@ -130,75 +132,85 @@ export const MainPage: React.FC<{}> = (props) => {
         />
 
         <div className="w-full space-y-6">
+          {isProofVerified && (
+            <div className="flex items-center p-4 text-white bg-[#259991]">
+              <img src="/_icon-small.svg" height={40} width={40} alt="Check" />
+              <p className="ml-4 font-medium text-lg">You&apos;re verified</p>
+            </div>
+          )}
           <div className="bg-white rounded-lg p-6 shadow-sm">
             <MetaMaskConnectButton onWalletConnect={handleWalletConnect} />
           </div>
-
-          <div className="bg-white rounded-lg p-6 shadow-sm">
-            {!isPlatformSelected && (
-              <h2 className="text-sm font-geist-mono-medium font-semibold mb-4">
-                2. SELECTED PLATFORM TO CHECK FOR REWARDS
-              </h2>
-            )}
-
-            {!isPlatformSelected ? (
-              <div
-                className="flex items-center bg-[#FAFAFA] justify-between border border-gray-200 rounded-md p-4 cursor-pointer hover:bg-gray-50"
-                onClick={handlePlatformSelection}
-              >
-                <span className="text-base font-medium">Coinbase</span>
-                <img
-                  src="/coinbase-letter-logo.svg"
-                  alt="Coinbase"
-                  width={16}
-                  height={16}
-                />
-              </div>
-            ) : (
-              <div className="flex items-center">
-                <div className="w-[150px] flex items-center border px-2 py-1 space-x-2 mr-4 rounded-2xl">
-                  <img src="/check.svg" alt="Check" width={20} height={20} />
-                  <span className="text-xs text-gray-600">
-                    Platform Selected
-                  </span>
-                </div>
-                <img
-                  src="/coinbase-logo.svg"
-                  alt="Coinbase"
-                  width={70}
-                  height={13}
-                />
-              </div>
-            )}
-          </div>
-          {isPlatformSelected && isWalletConnected && !nextEmailStep && (
-            <>
-              <button
-                onClick={() => setNextEmailStep(true)}
-                className="w-full text-xl font-semibold border-2 border-[#2692A8] text-[#217F90] bg-white rounded-lg p-6 shadow-sm text-center"
-              >
-                Let&apos;s Go
-              </button>
-              <div className="w-full text-center">
-                <a
-                  href="#"
-                  className="w-full text-center text-sm font-geist-mono-medium"
-                >
-                  <span className="underline">READ VISION</span> ↗
-                </a>
-              </div>
-            </>
-          )}
-          {nextEmailStep && (
+          {!isProofVerified && (
             <div className="bg-white rounded-lg p-6 shadow-sm">
-              <h2 className="text-xs text-[#525252] mb-4 font-geist-mono-medium">
+              {!isPlatformSelected && (
+                <h2 className="text-sm font-geist-mono-medium font-semibold mb-4">
+                  2. SELECTED PLATFORM TO CHECK FOR REWARDS
+                </h2>
+              )}
+
+              {!isPlatformSelected ? (
+                <div
+                  className="flex items-center bg-[#FAFAFA] justify-between border border-gray-200 rounded-md p-4 cursor-pointer hover:bg-gray-50"
+                  onClick={handlePlatformSelection}
+                >
+                  <span className="text-base font-medium">Coinbase</span>
+                  <img
+                    src="/coinbase-letter-logo.svg"
+                    alt="Coinbase"
+                    width={16}
+                    height={16}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center">
+                  <div className="w-[150px] flex items-center border px-2 py-1 space-x-2 mr-4 rounded-2xl">
+                    <img src="/check.svg" alt="Check" width={20} height={20} />
+                    <span className="text-xs text-gray-600">
+                      Platform Selected
+                    </span>
+                  </div>
+                  <img
+                    src="/coinbase-logo.svg"
+                    alt="Coinbase"
+                    width={70}
+                    height={13}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {isPlatformSelected &&
+            isWalletConnected &&
+            !nextEmailStep &&
+            !isProofVerified && (
+              <>
+                <button
+                  onClick={() => setNextEmailStep(true)}
+                  className="w-full text-xl font-semibold border-2 border-[#2692A8] text-[#217F90] bg-white rounded-lg p-6 shadow-sm text-center"
+                >
+                  Let&apos;s Go
+                </button>
+                <div className="w-full text-center">
+                  <a
+                    href="#"
+                    className="w-full text-center text-sm font-geist-mono-medium"
+                  >
+                    <span className="underline">READ VISION</span> ↗
+                  </a>
+                </div>
+              </>
+            )}
+          {nextEmailStep && !isProofVerified && (
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <h2 className="text-xs font-geist-mono text-[#525252] mb-4 font-geist-mono-medium">
                 CONNECT GOOGLE ACCOUNT
               </h2>
               <p className="text-base mb-6">
                 We&apos;ll look for any Coinbase USDC rewards emails so that you
                 can start earning rewards.
               </p>
-              {/*  <GoogleSignInButton /> */}
               {!loggedInGmail && (
                 <div className="flex justify-center">
                   <button
@@ -216,47 +228,53 @@ export const MainPage: React.FC<{}> = (props) => {
                   </button>
                 </div>
               )}
-              {loggedInGmail && fetchedEmails.length > 0 && (
-                <div className="bg-[#FAFAFA] border border-gray-200 rounded-lg">
-                  <div className="flex flex-col p-6 space-y-2 ">
-                    <div className="flex justify-between items-start">
-                      <p className="text-gray-600 font-medium w-1/6">Sender</p>
-                      <p className="text-black font-normal w-5/6">
-                        {
-                          parseEmailContent(fetchedEmails[0].decodedContents)
-                            .from
-                        }
-                      </p>
+              {loggedInGmail &&
+                fetchedEmails.length > 0 &&
+                !isProofVerified && (
+                  <div className="bg-[#FAFAFA] border border-gray-200 rounded-lg">
+                    <div className="flex flex-col p-6 space-y-2 ">
+                      <div className="flex justify-between items-start">
+                        <p className="text-gray-600 font-medium w-1/6">
+                          Sender
+                        </p>
+                        <p className="text-black font-normal w-5/6">
+                          {
+                            parseEmailContent(fetchedEmails[0].decodedContents)
+                              .from
+                          }
+                        </p>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <p className="text-gray-600 font-medium w-1/6">
+                          Subject
+                        </p>
+                        <p className="text-black font-normal w-5/6">
+                          {fetchedEmails[0].subject}
+                        </p>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <p className="text-gray-600 font-medium w-1/6">Date</p>
+                        <p className="text-black font-normal w-5/6">
+                          {convertTimestampToDate(
+                            parseInt(fetchedEmails[0].internalDate)
+                          )}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-start">
-                      <p className="text-gray-600 font-medium w-1/6">Subject</p>
-                      <p className="text-black font-normal w-5/6">
-                        {fetchedEmails[0].subject}
-                      </p>
-                    </div>
-                    <div className="flex justify-between items-start">
-                      <p className="text-gray-600 font-medium w-1/6">Date</p>
-                      <p className="text-black font-normal w-5/6">
-                        {convertTimestampToDate(
-                          parseInt(fetchedEmails[0].internalDate)
-                        )}
-                      </p>
+                    <div className="w-full my-2 h-px bg-[#E5E5E5]" />
+                    <div className="mt-6 flex justify-center">
+                      <div
+                        className="prose max-w-none"
+                        dangerouslySetInnerHTML={{
+                          __html: parseEmailContent(
+                            fetchedEmails[0].decodedContents
+                          ).htmlBody,
+                        }}
+                      />
                     </div>
                   </div>
-                  <div className="w-full my-2 h-px bg-[#E5E5E5]" />
-                  <div className="mt-6 flex justify-center">
-                    <div
-                      className="prose max-w-none"
-                      dangerouslySetInnerHTML={{
-                        __html: parseEmailContent(
-                          fetchedEmails[0].decodedContents
-                        ).htmlBody,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-              {fetchedEmails.length > 0 && (
+                )}
+              {fetchedEmails.length > 0 && !isProofVerified && (
                 <button
                   onClick={handleProofStep}
                   disabled={generatingProof}
@@ -279,6 +297,47 @@ export const MainPage: React.FC<{}> = (props) => {
                   )}
                 </button>
               )}
+            </div>
+          )}
+          {isProofVerified && (
+            <div className="flex flex-col items-center justify-center p-6 bg-white rounded-lg shadow-md">
+              <h2 className="text-4xl font-medium mb-4 text-gray-800">
+                Start earning rewards
+              </h2>
+              <button
+                className="bg-[#217F90] hover:bg-teal-700 text-white font-bold py-2 px-4 rounded flex items-center"
+                onClick={() => console.log("View profile clicked")}
+              >
+                View your profile
+                <svg
+                  className="w-4 h-4 ml-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+                <svg
+                  className="w-4 h-4 -ml-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
             </div>
           )}
         </div>
