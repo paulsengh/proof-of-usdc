@@ -94,8 +94,7 @@ export const MainPage: React.FC<{}> = (props) => {
 
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // Commented-out code for the fetch request
-      /* const response = await fetch("/api/generate-and-upload-proof", {
+      /* const response = await fetch("/api/generate-proof", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -154,7 +153,9 @@ export const MainPage: React.FC<{}> = (props) => {
                   className="flex items-center bg-[#FAFAFA] justify-between border border-gray-200 rounded-md p-4 cursor-pointer hover:bg-gray-50"
                   onClick={handlePlatformSelection}
                 >
-                  <span className="text-base font-medium">Coinbase</span>
+                  <span className="text-base font-geist-sans font-medium">
+                    Coinbase
+                  </span>
                   <img
                     src="/coinbase-letter-logo.svg"
                     alt="Coinbase"
