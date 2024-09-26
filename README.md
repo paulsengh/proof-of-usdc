@@ -130,7 +130,7 @@ To fix, update the `publicSignals` and `proof` in `test/TestCoinbase.t.sol` with
     - `yarn test`
 3. Generate a proving key and verification key. 
     - CWD: `packages/circuits/scripts`
-    - `yarn ts-node dev-setup.ts`
+    - `ZKEY_ENTROPY=<random-number> ZKEY_BEACON=<random-hex> yarn ts-node dev-setup.ts`
 4. Update inputs + proof, and run test cases on contract
     - CWD: `packages/contracts`
     - `yarn test`
