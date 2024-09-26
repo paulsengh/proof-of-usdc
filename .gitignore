@@ -13,11 +13,6 @@ dist
 /coverage
 junit.xml
 
-# production
-# /build
-/build/*
-!/build/artifacts/
-
 # misc
 .DS_Store
 .env.local
@@ -72,6 +67,5 @@ circuits/regexes/subject_regex*
 tsbuildinfo
 
 **/node_modules
-# **/build
 **/dist
 tsconfig.tsbuildinfo
