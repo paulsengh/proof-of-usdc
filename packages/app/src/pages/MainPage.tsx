@@ -1,6 +1,6 @@
 import { useState } from "react";
-import MetaMaskConnectButton from "./components/MetaMaskConnectButton";
-import GoogleSignInButton from "../components/GoogleSignInButton.tsx";
+import MetaMaskConnectButton from "../components/MetaMaskConnectButton";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 // @ts-ignore
 import { useMount, useUpdateEffect } from "react-use";
 import styled from "styled-components";
