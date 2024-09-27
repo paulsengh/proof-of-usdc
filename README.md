@@ -149,9 +149,9 @@ To fix, update the `publicSignals` and `proof` in `test/TestCoinbase.t.sol` with
 Currently deployed contracts on Sepolia:
 
 ```
-  Deployed Verifier at address: 
-  Deployed DKIMRegistry at address: 
-  Deployed ProofOfUSDC at address: 
+  Deployed Verifier at address: 0xF068589BA6Eb05be6db861F7c3517099E2a62FC9
+  Deployed DKIMRegistry at address: 0x4570f2c537C285859F61C6e5619EAf5Ab81C806f
+  Deployed ProofOfUSDC at address: 0xaC60F7C6F55dCCbFc9c9149f69805A88F5Adf3ed
 ```
 
 ### UI
