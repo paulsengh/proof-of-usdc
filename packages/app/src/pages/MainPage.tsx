@@ -424,18 +424,18 @@ export const MainPage: React.FC = () => {
               </div>
             )}
 
-            {
-              /* isPlatformSelected &&
+            {isPlatformSelected &&
               isWalletConnected &&
               !nextEmailStep &&
-              !isProofVerified && */ <>
-                <button
-                  onClick={handleContinueClick}
-                  className="w-full text-xl font-semibold border-2 border-[#0A0A0A] text-[#0A0A0A] bg-white rounded-lg p-6 shadow-sm text-center"
-                >
-                  Continue
-                </button>
-                {/* <div className="w-full text-center">
+              !isProofVerified && (
+                <>
+                  <button
+                    onClick={handleContinueClick}
+                    className="w-full text-xl font-semibold border-2 border-[#0A0A0A] text-[#0A0A0A] bg-white rounded-lg p-6 shadow-sm text-center"
+                  >
+                    Continue
+                  </button>
+                  {/* <div className="w-full text-center">
                     <a
                       href="#"
                       className="w-full text-center text-sm font-geist-mono"
@@ -443,8 +443,8 @@ export const MainPage: React.FC = () => {
                       <span className="underline">READ VISION</span> ↗
                     </a>
                   </div> */}
-              </>
-            }
+                </>
+              )}
             {!nextEmailStep && !isPlatformSelected && (
               <RecentAttestationsTable />
             )}
@@ -528,11 +528,13 @@ export const MainPage: React.FC = () => {
                       </div>
                     </div>
                   )}
-                {fetchedEmails.length > 0 && !isProofVerified && (
-                  <button
-                    onClick={handleProofStep}
-                    disabled={generatingProof}
-                    className={`w-full text-xl mt-6 font-semibold
+                {
+                  // fetchedEmails.length > 0 &&
+                  !isProofVerified && (
+                    <button
+                      onClick={handleProofStep}
+                      disabled={generatingProof}
+                      className={`w-full text-xl mt-6 font-semibold
       ${
         generatingProof
           ? "bg-white"
@@ -540,17 +542,18 @@ export const MainPage: React.FC = () => {
       }
       text-[#217F90] rounded-lg p-6 text-center
       flex items-center justify-center`}
-                  >
-                    {generatingProof ? (
-                      <>
-                        <Loader2 className="animate-spin mr-2 h-5 w-5" />
-                        Generating Proof...
-                      </>
-                    ) : (
-                      "Continue"
-                    )}
-                  </button>
-                )}
+                    >
+                      {generatingProof ? (
+                        <>
+                          <Loader2 className="animate-spin mr-2 h-5 w-5" />
+                          Generating Proof...
+                        </>
+                      ) : (
+                        "Continue"
+                      )}
+                    </button>
+                  )
+                }
               </div>
             )}
             {isProofVerified && (
