@@ -168,20 +168,19 @@ export const MainPage: React.FC = () => {
     setIsPlatformSelected(!isPlatformSelected);
   };
 
-  const reformatProofForChain = (proof: any) => {
-    if (!proof) return [];
+  const reformatProofForChain = (proofStr: string) => {
+    if (!proofStr) return [];
 
-    const reformattedProof = [
+    const proof = JSON.parse(proofStr);
+
+    return [
       proof.pi_a.slice(0, 2),
       proof.pi_b
         .slice(0, 2)
-        .map((s: any[]) => s.reverse())
+        .map((s: string[]) => s.reverse())
         .flat(),
       proof.pi_c.slice(0, 2),
     ].flat();
-
-    console.log("Reformatted proof:", reformattedProof);
-    return reformattedProof;
   };
 
   console.log("before usePrepareContractWrite publicSignals: ", publicSignals);
@@ -196,7 +195,10 @@ export const MainPage: React.FC = () => {
     address: import.meta.env.VITE_CONTRACT_ADDRESS,
     abi: abi,
     functionName: "mint",
-    args: [reformatProofForChain(proof), publicSignals],
+    args: [
+      reformatProofForChain(proof),
+      publicSignals ? JSON.parse(publicSignals) : [],
+    ],
     enabled: !!(proof && publicSignals),
     onError: (error: { message: any }) => {
       console.error(error.message);
@@ -206,18 +208,12 @@ export const MainPage: React.FC = () => {
 
   console.log("Prepare config:", config);
 
-  const {
-    data,
-    isLoading,
-    isSuccess,
-    write,
-    error: writeError,
-  } = useContractWrite(config);
+  const { data, isLoading, isSuccess, write } = useContractWrite(config);
 
   console.log("Contract write data:", data);
   console.log("Contract write loading:", isLoading);
   console.log("Contract write success:", isSuccess);
-  console.log("Contract write error:", writeError);
+  //console.log("Contract write error:", writeError);
 
   console.log("tx data: ", data);
 
@@ -277,8 +273,10 @@ export const MainPage: React.FC = () => {
       console.log("downloadedProof: ", downloadedProof);
       console.log("downloadedPublicSignals: ", downloadedPublicSignals);
 
-      setProof(downloadedProof);
-      setPublicSignals(downloadedPublicSignals);
+      setProof(JSON.stringify(downloadedProof));
+      setPublicSignals(JSON.stringify(downloadedPublicSignals));
+      // setProof(downloadedProof);
+      // setPublicSignals(downloadedPublicSignals);
 
       setIsProofVerified(true);
     } catch (error) {
@@ -426,18 +424,18 @@ export const MainPage: React.FC = () => {
               </div>
             )}
 
-            {isPlatformSelected &&
+            {
+              /* isPlatformSelected &&
               isWalletConnected &&
               !nextEmailStep &&
-              !isProofVerified && (
-                <>
-                  <button
-                    onClick={handleContinueClick}
-                    className="w-full text-xl font-semibold border-2 border-[#0A0A0A] text-[#0A0A0A] bg-white rounded-lg p-6 shadow-sm text-center"
-                  >
-                    Continue
-                  </button>
-                  {/* <div className="w-full text-center">
+              !isProofVerified && */ <>
+                <button
+                  onClick={handleContinueClick}
+                  className="w-full text-xl font-semibold border-2 border-[#0A0A0A] text-[#0A0A0A] bg-white rounded-lg p-6 shadow-sm text-center"
+                >
+                  Continue
+                </button>
+                {/* <div className="w-full text-center">
                     <a
                       href="#"
                       className="w-full text-center text-sm font-geist-mono"
@@ -445,8 +443,8 @@ export const MainPage: React.FC = () => {
                       <span className="underline">READ VISION</span> ↗
                     </a>
                   </div> */}
-                </>
-              )}
+              </>
+            }
             {!nextEmailStep && !isPlatformSelected && (
               <RecentAttestationsTable />
             )}
