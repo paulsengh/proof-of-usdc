@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import MetaMaskConnectButton from "../components/MetaMaskConnectButton";
-// import GoogleSignInButton from "../components/GoogleSignInButton";
 import { formatDateTime } from "../helpers/dateTimeFormat";
 import EmailInputMethod from "../components/EmailInputMethod";
-// import { google } from "googleapis";
 import useGoogleAuth from "../hooks/useGoogleAuth";
 import { Loader2 } from "lucide-react";
 import {
@@ -17,7 +15,6 @@ import { parseEmailContent } from "../utils/parseEmailContent";
 import {
   downloadProofFiles,
   generateProof,
-  verifyProof,
 } from "@zk-email/helpers/dist/chunked-zkey";
 import {
   S3Client,
@@ -26,11 +23,8 @@ import {
 } from "@aws-sdk/client-s3";
 const { ethers } = require("ethers");
 import { generateCoinbaseVerifierCircuitInputs } from "../../../../packages/circuits/helpers/generate-inputs";
-const snarkjs = require("snarkjs");
+import emlContent from "../../../circuits/tests/emls/coinbase-test.eml?raw";
 
-import emlContent from "../coinbase-test.eml?raw";
-
-// Configure AWS S3 Client
 const s3Client = new S3Client({
   region: import.meta.env.VITE_AWS_REGION,
   credentials: {
@@ -62,7 +56,6 @@ export const MainPage: React.FC<{}> = (props) => {
     googleAuthToken,
     isGoogleAuthed,
     loggedInGmail,
-    scopesApproved,
     googleLogIn,
     googleLogOut,
   } = useGoogleAuth();
@@ -83,6 +76,23 @@ export const MainPage: React.FC<{}> = (props) => {
       handleFetchEmails();
     }
   }, [isGoogleAuthed]);
+
+  useEffect(() => {
+    const downloadZKey = async () => {
+      try {
+        await downloadProofFiles(
+          // @ts-ignore
+          import.meta.env.VITE_CIRCUIT_ARTIFACTS_URL,
+          "coinbase",
+          () => {}
+        );
+      } catch (e) {
+        console.log(e);
+        return;
+      }
+    };
+    downloadZKey();
+  }, []);
 
   const handleFetchEmails = async () => {
     try {
@@ -139,66 +149,44 @@ export const MainPage: React.FC<{}> = (props) => {
       console.log("handleProofStep base_url: ", base_url);
       const { proof, publicSignals } = await generateProof(
         circuitInputs,
-        // @ts-ignore
-        /* import.meta.env.VITE_CIRCUIT_ARTIFACTS_URL */ "https://zkcoinbase-zkey-chunks.s3.amazonaws.com/5e474a0cce971e20d4288665e80ea1d596da2dca/",
+        import.meta.env.VITE_CIRCUIT_ARTIFACTS_URL,
         "coinbase"
       );
 
-      console.log("generateProof proof: ", proof);
-      console.log("generateProof publicSignals", publicSignals);
-
-      const wasmArrayBuffer = await fetch("/build/coinbase.wasm").then((res) =>
-        res.arrayBuffer()
-      );
-
-      console.log("handleProofStep wasmArrayBuffer: ", wasmArrayBuffer);
-      const witnessCalculator = await snarkjs.wtns.initialize(
-        new Uint8Array(wasmArrayBuffer)
-      ); // This is incorrect as of now
-      const witnessBuffer = await witnessCalculator.calculateWTNSBin(
-        circuitInputs,
-        0
-      );
-
-      const uploadWitnessCommand = new PutObjectCommand({
-        Bucket: import.meta.env.VITE_AWS_BUCKET,
-        Key: "build/input.wtns",
-        Body: Buffer.from(witnessBuffer),
-        ACL: "public-read",
-      });
-      await s3Client.send(uploadWitnessCommand);
-
-      console.log("Witness generated and uploaded to S3");
-
       console.log("handleProofStep proof: ", proof);
-      console.log("handleProofStep publicSignals: ", publicSignals);
+      console.log("handleProofStep publicSignals", publicSignals);
 
-      // Upload proof to S3 using v3 SDK
+      console.log("just before upload");
       const proofUploadCommand = new PutObjectCommand({
         Bucket: import.meta.env.VITE_AWS_BUCKET,
         Key: "proofs/latest_proof.json",
         Body: JSON.stringify({ proof, publicSignals }),
         ACL: "public-read",
       });
-      await s3Client.send(proofUploadCommand);
 
-      // Step 6: Download the proof from AWS S3 and verify it on-chain
+      await s3Client.send(proofUploadCommand);
+      console.log("just after upload: ", proofUploadCommand);
+
       const proofDownloadCommand = new GetObjectCommand({
         Bucket: import.meta.env.VITE_AWS_BUCKET,
         Key: "proofs/latest_proof.json",
       });
       const proofData = await s3Client.send(proofDownloadCommand);
 
+      console.log("proofData: ", proofData);
+
       const proofBody = await proofData.Body?.transformToString();
+
       const { proof: downloadedProof, publicSignals: downloadedPublicSignals } =
         JSON.parse(proofBody!);
 
-      // Connect to the Ethereum network
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      console.log("downloadedProof: ", downloadedProof);
+      console.log("downloadedPublicSignals: ", downloadedPublicSignals);
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = provider.getSigner();
 
-      // Load the ProofOfUSDC contract
-      const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS!;
+      const contractAddress = process.env.VITE_CONTRACT_ADDRESS;
       const contractABI = [abi];
       const contract = new ethers.Contract(
         contractAddress,
@@ -206,7 +194,9 @@ export const MainPage: React.FC<{}> = (props) => {
         signer
       ) as any; /* ethers.Contract & ProofOfUSDCABI */
 
-      // Call the mint function to verify the proof on-chain
+      console.log("contract: ", contract);
+      console.log("Contract methods:", Object.keys(contract.functions));
+
       const tx = await contract.mint(
         [
           downloadedProof.pi_a[0],
@@ -222,6 +212,8 @@ export const MainPage: React.FC<{}> = (props) => {
       );
 
       await tx.wait();
+
+      console.log("tx: ", tx);
 
       setIsProofVerified(true);
     } catch (error) {
