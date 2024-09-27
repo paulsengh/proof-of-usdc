@@ -133,16 +133,16 @@ To fix, update the `publicSignals` and `proof` in `test/TestCoinbase.t.sol` with
     - `ZKEY_ENTROPY=<random-number> ZKEY_BEACON=<random-hex> yarn ts-node dev-setup.ts`
 4. Upload build files to AWS S3
     - CWD: `packages/circuits/scripts`
-    - `python3 upload_to_s3.py --build-dir ../circuits/build --circuit-name coinbase`  
-5. Update inputs + proof, and run test cases on contract
+    - `python3 upload_to_s3.py`  
+5. Generate a proof on AWS
+    - CWD: `packages/circuits/scripts`
+    - `yarn ts-node generate-proof.ts --email-file ../tests/emls/coinbase-test.eml --ethereum-address <your-eth-address>`
+6. Update inputs + proof, and run test cases on contract
     - CWD: `packages/contracts`
     - `yarn test`
-6. Deploy verifier contract
+7. Deploy verifier contract
     - CWD: `packages/contracts`
     - `PRIVATE_KEY=<pk-hex> forge script script/DeployCoinbase.s.sol:Deploy --rpc-url https://rpc2.sepolia.org --broadcast`
-7. Generate a proof on AWS
-    - CWD: `packages/circuits/scripts`
-    - `ts-node generate-proof.ts --email-file ../tests/emls/coinbase-test.eml --ethereum-address <your-eth-address>`
 8. Download the proof from AWS S3, and verify it on-chain
     - Call `_mint` in the `ProofOfUSDC` contract
 
