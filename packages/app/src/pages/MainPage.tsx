@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import MetaMaskConnectButton from "../components/MetaMaskConnectButton";
 import { formatDateTime } from "../helpers/dateTimeFormat";
 import EmailInputMethod from "../components/EmailInputMethod";
 import useGoogleAuth from "../hooks/useGoogleAuth";
@@ -9,7 +8,7 @@ import {
   fetchEmailsRaw,
   RawEmailResponse,
 } from "../hooks/useGmailClient";
-import abi from "../abi.json";
+import abi from "../ProofOfUSDC-abi.json";
 import { convertTimestampToDate } from "../utils/convertTimestampToDate";
 import { parseEmailContent } from "../utils/parseEmailContent";
 import {
@@ -24,6 +23,22 @@ import {
 const { ethers } = require("ethers");
 import { generateCoinbaseVerifierCircuitInputs } from "../../../../packages/circuits/helpers/generate-inputs";
 import emlContent from "../../../circuits/tests/emls/coinbase-test.eml?raw";
+import InstructionsModal from "../components/InstructionsModal";
+
+interface EthereumProvider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on: (eventName: string, callback: (...args: any[]) => void) => void;
+  removeListener: (
+    eventName: string,
+    callback: (...args: any[]) => void
+  ) => void;
+}
+
+declare global {
+  interface Window {
+    ethereum?: EthereumProvider;
+  }
+}
 
 const s3Client = new S3Client({
   region: import.meta.env.VITE_AWS_REGION,
@@ -34,8 +49,8 @@ const s3Client = new S3Client({
 });
 
 export const MainPage: React.FC<{}> = (props) => {
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
+  const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [isPlatformSelected, setIsPlatformSelected] = useState(false);
   const [nextEmailStep, setNextEmailStep] = useState(false);
   const [nextProofStep, setNextProofStep] = useState(false);
@@ -44,6 +59,29 @@ export const MainPage: React.FC<{}> = (props) => {
   const [isFetchEmailLoading, setIsFetchEmailLoading] = useState(false);
   const [fetchedEmails, setFetchedEmails] = useState<RawEmailResponse[]>([]);
   const [exampleEmailContent, setExampleEmailContent] = useState("");
+
+  // Instructions Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const openModal = () => setIsModalOpen(true);
+  const closeModal = () => setIsModalOpen(false);
+
+  const connectWallet = async () => {
+    if (typeof window.ethereum !== "undefined") {
+      try {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        const accounts = (await window.ethereum.request({
+          method: "eth_accounts",
+        })) as string[];
+        setWalletAddress(accounts[0]);
+        setIsWalletConnected(true);
+      } catch (error) {
+        console.error("Failed to connect to MetaMask:", error);
+      }
+    } else {
+      console.log("MetaMask is not installed");
+    }
+  };
 
   console.log("fetchedEmails: ", fetchedEmails);
 
@@ -194,9 +232,6 @@ export const MainPage: React.FC<{}> = (props) => {
         signer
       ) as any; /* ethers.Contract & ProofOfUSDCABI */
 
-      console.log("contract: ", contract);
-      console.log("Contract methods:", Object.keys(contract.functions));
-
       const tx = await contract.mint(
         [
           downloadedProof.pi_a[0],
@@ -233,24 +268,48 @@ export const MainPage: React.FC<{}> = (props) => {
         <div className="bg-white bg-opacity-70 h-[80px] flex items-center justify-between px-6">
           <img src="/obl-logo.svg" alt="obl-logo" width={180} height={25} />
 
-          <nav className="flex items-center space-x-6">
-            <a href="#" className="text-[#0A0A0A]">
+          <div className="flex items-center space-x-6">
+            <a href="#" className="font-semibold text-[#0A0A0A]">
               Your attestations
             </a>
-            <a href="#" className="flex items-center text-[#0C2B32] space-x-2">
+            <button
+              onClick={openModal}
+              className="font-semibold flex items-center text-[#0C2B32] space-x-2"
+            >
               <p>Instructions</p>
               <img src="/info-icon.svg" height={16} width={16} alt="Info" />
-            </a>
-            <button className="flex border rounded-lg border-[#D4D4D4] bg-white items-center text-[#0C2B32] px-4 py-2 rounded transition-colors">
-              <img src="/wallet-icon.svg" height={15} width={15} alt="Wallet" />
-              <p className="pl-2">Connect Wallet</p>
             </button>
-          </nav>
+            {isWalletConnected ? (
+              <div className="flex items-center border font-medium rounded-lg border-[#D4D4D4] bg-white text-[#0C2B32] px-4 py-2">
+                <img
+                  src="/wallet-icon.svg"
+                  height={15}
+                  width={15}
+                  alt="Wallet"
+                />
+                <p className="pl-2 truncate w-32">{walletAddress}</p>
+              </div>
+            ) : (
+              <button
+                onClick={connectWallet}
+                className="flex border font-medium rounded-lg border-[#D4D4D4] bg-white items-center text-[#0C2B32] px-4 py-2 transition-colors hover:bg-gray-50"
+              >
+                <img
+                  src="/wallet-icon.svg"
+                  height={15}
+                  width={15}
+                  alt="Wallet"
+                />
+                <p className="pl-2">Connect Wallet</p>
+              </button>
+            )}
+          </div>
         </div>
       </header>
+      <InstructionsModal isOpen={isModalOpen} onClose={closeModal} />
       <div className="flex-grow overflow-auto bg-[#FAF8F4]">
         <div className="flex flex-col items-center py-8">
-          <div className="w-1/3 space-y-6">
+          <div className="w-1/2 space-y-6">
             {isProofVerified && (
               <div className="flex items-center p-4 text-white bg-[#259991]">
                 <img
@@ -262,31 +321,57 @@ export const MainPage: React.FC<{}> = (props) => {
                 <p className="ml-4 font-medium text-lg">You&apos;re verified</p>
               </div>
             )}
-            <div className="bg-white rounded-lg p-6 shadow-sm">
-              <MetaMaskConnectButton onWalletConnect={handleWalletConnect} />
-            </div>
             {!isProofVerified && (
               <div className="bg-white rounded-lg p-6 shadow-sm">
                 {!isPlatformSelected && (
-                  <h2 className="text-sm font-geist-mono-medium font-semibold mb-4">
-                    2. SELECTED PLATFORM TO CHECK FOR REWARDS
-                  </h2>
+                  <>
+                    <h2 className="text-sm font-geist-mono font-medium mb-4">
+                      1. GET STARTED WITH COINBASE
+                    </h2>
+                    <p className="text-lg py-2">
+                      Securely transform your data into a private attestation
+                      and unlock rewards.
+                    </p>
+                  </>
                 )}
 
                 {!isPlatformSelected ? (
-                  <div
-                    className="flex items-center bg-[#FAFAFA] justify-between border border-gray-200 rounded-md p-4 cursor-pointer hover:bg-gray-50"
-                    onClick={handlePlatformSelection}
-                  >
-                    <span className="text-base font-geist-sans font-medium">
-                      Coinbase
-                    </span>
-                    <img
-                      src="/coinbase-letter-logo.svg"
-                      alt="Coinbase"
-                      width={16}
-                      height={16}
-                    />
+                  <div className="space-y-3 pt-3">
+                    <div
+                      className="flex items-center bg-[#FAFAFA] justify-between border border-gray-200 rounded-md p-4 cursor-pointer hover:bg-gray-50"
+                      onClick={handlePlatformSelection}
+                    >
+                      <span className="text-base font-medium">Coinbase</span>
+                      <img
+                        src="/coinbase-letter-logo.svg"
+                        alt="Coinbase"
+                        width={16}
+                        height={16}
+                      />
+                    </div>
+                    <div
+                      className="flex items-center bg-[#FAFAFA] justify-between border border-gray-200 rounded-md p-4"
+                      onClick={() => {}}
+                    >
+                      <span className="text-base font-medium text-[#737373]">
+                        X / Twitter
+                      </span>
+                      <img src="/x-logo.svg" alt="X" width={16} height={16} />
+                    </div>
+                    <div
+                      className="flex items-center bg-[#FAFAFA] justify-between border border-gray-200 rounded-md p-4"
+                      onClick={() => {}}
+                    >
+                      <span className="text-base font-medium text-[#737373]">
+                        Airbnb
+                      </span>
+                      <img
+                        src="/airbnb.svg"
+                        alt="Airbnb"
+                        width={16}
+                        height={16}
+                      />
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center">
@@ -326,7 +411,7 @@ export const MainPage: React.FC<{}> = (props) => {
                   <div className="w-full text-center">
                     <a
                       href="#"
-                      className="w-full text-center text-sm font-geist-mono-medium"
+                      className="w-full text-center text-sm font-geist-mono"
                     >
                       <span className="underline">READ VISION</span> ↗
                     </a>
@@ -335,7 +420,7 @@ export const MainPage: React.FC<{}> = (props) => {
               )}
             {nextEmailStep && !isProofVerified && (
               <div className="bg-white rounded-lg p-6 shadow-sm">
-                <h2 className="text-xs font-geist-mono text-[#525252] mb-4 font-geist-mono-medium">
+                <h2 className="text-xs font-geist-mono text-[#525252] mb-4">
                   CONNECT GOOGLE ACCOUNT
                 </h2>
                 <p className="text-base mb-6">
