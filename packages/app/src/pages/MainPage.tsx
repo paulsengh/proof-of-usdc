@@ -1,14 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
-import { formatDateTime } from "../helpers/dateTimeFormat";
-import EmailInputMethod from "../components/EmailInputMethod";
-import useGoogleAuth from "../hooks/useGoogleAuth";
+import React, { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import {
   fetchEmailList,
   fetchEmailsRaw,
   RawEmailResponse,
 } from "../hooks/useGmailClient";
-import abi from "../ProofOfUSDC-abi.json";
+import { useAccount, useContractWrite, usePrepareContractWrite } from "wagmi";
+import abi from "../ProofOfUSDC.json";
 import { convertTimestampToDate } from "../utils/convertTimestampToDate";
 import { parseEmailContent } from "../utils/parseEmailContent";
 import {
@@ -20,10 +18,13 @@ import {
   PutObjectCommand,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
-const { ethers } = require("ethers");
+import { ethers } from "ethers";
 import { generateCoinbaseVerifierCircuitInputs } from "../../../../packages/circuits/helpers/generate-inputs";
 import emlContent from "../../../circuits/tests/emls/coinbase-test.eml?raw";
 import InstructionsModal from "../components/InstructionsModal";
+import RecentAttestationsTable from "../components/RecentAttestationsTable";
+import BeforeProveModal from "../components/BeforeProveModal";
+import useGoogleAuth from "../hooks/useGoogleAuth";
 
 interface EthereumProvider {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -48,7 +49,7 @@ const s3Client = new S3Client({
   },
 });
 
-export const MainPage: React.FC<{}> = (props) => {
+export const MainPage: React.FC = () => {
   const [walletAddress, setWalletAddress] = useState("");
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [isPlatformSelected, setIsPlatformSelected] = useState(false);
@@ -59,9 +60,18 @@ export const MainPage: React.FC<{}> = (props) => {
   const [isFetchEmailLoading, setIsFetchEmailLoading] = useState(false);
   const [fetchedEmails, setFetchedEmails] = useState<RawEmailResponse[]>([]);
   const [exampleEmailContent, setExampleEmailContent] = useState("");
-
-  // Instructions Modal
+  const [isBeforeProveModalOpen, setIsBeforeProveModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [proof, setProof] = useState<any>(null);
+  const [publicSignals, setPublicSignals] = useState<any>(null);
+
+  const {
+    googleAuthToken,
+    isGoogleAuthed,
+    loggedInGmail,
+    googleLogIn,
+    googleLogOut,
+  } = useGoogleAuth();
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
@@ -83,31 +93,23 @@ export const MainPage: React.FC<{}> = (props) => {
     }
   };
 
-  console.log("fetchedEmails: ", fetchedEmails);
+  const handleContinueClick = () => {
+    setIsBeforeProveModalOpen(true);
+  };
+
+  const closeBeforeProveModal = () => {
+    setIsBeforeProveModalOpen(false);
+  };
+
+  const handleConfirmProve = () => {
+    closeBeforeProveModal();
+    setNextEmailStep(true);
+    console.log("User confirmed. Proceeding to next step.");
+  };
 
   useEffect(() => {
-    console.log("emlContent: ", emlContent);
     setExampleEmailContent(emlContent);
   }, []);
-
-  const {
-    googleAuthToken,
-    isGoogleAuthed,
-    loggedInGmail,
-    googleLogIn,
-    googleLogOut,
-  } = useGoogleAuth();
-
-  console.log("googleAuthToken: ", googleAuthToken);
-
-  const handlePlatformSelection = () => {
-    setIsPlatformSelected(true);
-  };
-
-  const handleWalletConnect = (address: string) => {
-    setIsWalletConnected(true);
-    setWalletAddress(address);
-  };
 
   useEffect(() => {
     if (isGoogleAuthed) {
@@ -119,14 +121,12 @@ export const MainPage: React.FC<{}> = (props) => {
     const downloadZKey = async () => {
       try {
         await downloadProofFiles(
-          // @ts-ignore
           import.meta.env.VITE_CIRCUIT_ARTIFACTS_URL,
           "coinbase",
           () => {}
         );
       } catch (e) {
         console.log(e);
-        return;
       }
     };
     downloadZKey();
@@ -164,6 +164,63 @@ export const MainPage: React.FC<{}> = (props) => {
     }
   };
 
+  const handlePlatformSelection = () => {
+    setIsPlatformSelected(!isPlatformSelected);
+  };
+
+  const reformatProofForChain = (proof: any) => {
+    if (!proof) return [];
+
+    const reformattedProof = [
+      proof.pi_a.slice(0, 2),
+      proof.pi_b
+        .slice(0, 2)
+        .map((s: any[]) => s.reverse())
+        .flat(),
+      proof.pi_c.slice(0, 2),
+    ].flat();
+
+    console.log("Reformatted proof:", reformattedProof);
+    return reformattedProof;
+  };
+
+  console.log("before usePrepareContractWrite publicSignals: ", publicSignals);
+  console.log("before usePrepareContractWrite proof: ", proof);
+  console.log(
+    "before usePrepareContractWrite reformatProofForChain(proof): ",
+    reformatProofForChain(proof)
+  );
+
+  const { config } = usePrepareContractWrite({
+    // @ts-ignore
+    address: import.meta.env.VITE_CONTRACT_ADDRESS,
+    abi: abi,
+    functionName: "mint",
+    args: [reformatProofForChain(proof), publicSignals],
+    enabled: !!(proof && publicSignals),
+    onError: (error: { message: any }) => {
+      console.error(error.message);
+      // TODO: handle errors
+    },
+  });
+
+  console.log("Prepare config:", config);
+
+  const {
+    data,
+    isLoading,
+    isSuccess,
+    write,
+    error: writeError,
+  } = useContractWrite(config);
+
+  console.log("Contract write data:", data);
+  console.log("Contract write loading:", isLoading);
+  console.log("Contract write success:", isSuccess);
+  console.log("Contract write error:", writeError);
+
+  console.log("tx data: ", data);
+
   const handleProofStep = useCallback(async () => {
     setNextProofStep(true);
     setGeneratingProof(true);
@@ -194,7 +251,6 @@ export const MainPage: React.FC<{}> = (props) => {
       console.log("handleProofStep proof: ", proof);
       console.log("handleProofStep publicSignals", publicSignals);
 
-      console.log("just before upload");
       const proofUploadCommand = new PutObjectCommand({
         Bucket: import.meta.env.VITE_AWS_BUCKET,
         Key: "proofs/latest_proof.json",
@@ -221,34 +277,8 @@ export const MainPage: React.FC<{}> = (props) => {
       console.log("downloadedProof: ", downloadedProof);
       console.log("downloadedPublicSignals: ", downloadedPublicSignals);
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = provider.getSigner();
-
-      const contractAddress = process.env.VITE_CONTRACT_ADDRESS;
-      const contractABI = [abi];
-      const contract = new ethers.Contract(
-        contractAddress,
-        contractABI,
-        signer
-      ) as any; /* ethers.Contract & ProofOfUSDCABI */
-
-      const tx = await contract.mint(
-        [
-          downloadedProof.pi_a[0],
-          downloadedProof.pi_a[1],
-          downloadedProof.pi_b[0][1],
-          downloadedProof.pi_b[0][0],
-          downloadedProof.pi_b[1][1],
-          downloadedProof.pi_b[1][0],
-          downloadedProof.pi_c[0],
-          downloadedProof.pi_c[1],
-        ],
-        downloadedPublicSignals
-      );
-
-      await tx.wait();
-
-      console.log("tx: ", tx);
+      setProof(downloadedProof);
+      setPublicSignals(downloadedPublicSignals);
 
       setIsProofVerified(true);
     } catch (error) {
@@ -256,8 +286,7 @@ export const MainPage: React.FC<{}> = (props) => {
     } finally {
       setGeneratingProof(false);
     }
-  }, [fetchedEmails, walletAddress, exampleEmailContent]);
-
+  }, [walletAddress, exampleEmailContent]);
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <header className="flex-shrink-0">
@@ -354,7 +383,7 @@ export const MainPage: React.FC<{}> = (props) => {
                       onClick={() => {}}
                     >
                       <span className="text-base font-medium text-[#737373]">
-                        X / Twitter
+                        X / Twitter (Coming soon)
                       </span>
                       <img src="/x-logo.svg" alt="X" width={16} height={16} />
                     </div>
@@ -363,7 +392,7 @@ export const MainPage: React.FC<{}> = (props) => {
                       onClick={() => {}}
                     >
                       <span className="text-base font-medium text-[#737373]">
-                        Airbnb
+                        Airbnb (Coming soon)
                       </span>
                       <img
                         src="/airbnb.svg"
@@ -374,7 +403,7 @@ export const MainPage: React.FC<{}> = (props) => {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center">
+                  <div className="flex justify-between items-center">
                     <div className="w-[150px] flex items-center border px-2 py-1 space-x-2 mr-4 rounded-2xl">
                       <img
                         src="/check.svg"
@@ -389,8 +418,8 @@ export const MainPage: React.FC<{}> = (props) => {
                     <img
                       src="/coinbase-logo.svg"
                       alt="Coinbase"
-                      width={70}
-                      height={13}
+                      width={90}
+                      height={16}
                     />
                   </div>
                 )}
@@ -403,21 +432,29 @@ export const MainPage: React.FC<{}> = (props) => {
               !isProofVerified && (
                 <>
                   <button
-                    onClick={() => setNextEmailStep(true)}
-                    className="w-full text-xl font-semibold border-2 border-[#2692A8] text-[#217F90] bg-white rounded-lg p-6 shadow-sm text-center"
+                    onClick={handleContinueClick}
+                    className="w-full text-xl font-semibold border-2 border-[#0A0A0A] text-[#0A0A0A] bg-white rounded-lg p-6 shadow-sm text-center"
                   >
-                    Let&apos;s Go
+                    Continue
                   </button>
-                  <div className="w-full text-center">
+                  {/* <div className="w-full text-center">
                     <a
                       href="#"
                       className="w-full text-center text-sm font-geist-mono"
                     >
                       <span className="underline">READ VISION</span> ↗
                     </a>
-                  </div>
+                  </div> */}
                 </>
               )}
+            {!nextEmailStep && !isPlatformSelected && (
+              <RecentAttestationsTable />
+            )}
+            <BeforeProveModal
+              isOpen={isBeforeProveModalOpen}
+              onClose={closeBeforeProveModal}
+              onConfirm={handleConfirmProve}
+            />
             {nextEmailStep && !isProofVerified && (
               <div className="bg-white rounded-lg p-6 shadow-sm">
                 <h2 className="text-xs font-geist-mono text-[#525252] mb-4">
@@ -501,7 +538,7 @@ export const MainPage: React.FC<{}> = (props) => {
       ${
         generatingProof
           ? "bg-white"
-          : "bg-white border-2 border-[#2692A8] shadow-sm"
+          : "bg-white border-2 border-[#0A0A0A] shadow-sm"
       }
       text-[#217F90] rounded-lg p-6 text-center
       flex items-center justify-center`}
