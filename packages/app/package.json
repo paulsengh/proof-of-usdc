@@ -80,7 +80,6 @@
     "jest-junit": "^16.0.0",
     "jsdom-worker": "^0.3.0",
     "madge": "^6.0.0",
-    "puppeteer": "18.1",
     "rollup-plugin-node-polyfills": "^0.2.1",
     "selenium-webdriver": "^4.16.0",
     "stream-browserify": "^3.0.0",
