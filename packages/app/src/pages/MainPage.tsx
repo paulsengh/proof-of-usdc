@@ -1,92 +1,125 @@
-import React, { useEffect, useState } from "react";
-// @ts-ignore
-import { useMount, useUpdateEffect } from "react-use";
-import styled from "styled-components";
-import _ from "lodash";
-import { useAccount, useContractWrite, usePrepareContractWrite } from "wagmi";
+import React, { useCallback, useEffect, useState } from "react";
+import { ChevronDown, Loader2 } from "lucide-react";
+import {
+  fetchEmailList,
+  fetchEmailsRaw,
+  RawEmailResponse,
+} from "../hooks/useGmailClient";
+import { useWriteContract } from "wagmi";
+import { abi } from "../ProofOfUSDC";
+import { convertTimestampToDate } from "../utils/convertTimestampToDate";
+import { parseEmailContent } from "../utils/parseEmailContent";
 import {
   downloadProofFiles,
   generateProof,
-  verifyProof,
 } from "@zk-email/helpers/dist/chunked-zkey";
-import { abi } from "../abi.json";
 import {
-  generateTwitterVerifierCircuitInputs,
-  ITwitterCircuitInputs,
-} from "@proof-of-twitter/circuits/helpers";
-import { LabeledTextArea } from "../components/LabeledTextArea";
-import DragAndDropTextBox from "../components/DragAndDropTextBox";
-import { SingleLineInput } from "../components/SingleLineInput";
-import { Button, TextButton } from "../components/Button";
-import { Col, Row } from "../components/Layout";
-import { NumberedStep } from "../components/NumberedStep";
-import { TopBanner } from "../components/TopBanner";
-import { ProgressBar } from "../components/ProgressBar";
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
+import { ethers } from "ethers";
+import { generateCoinbaseVerifierCircuitInputs } from "../../../../packages/circuits/helpers/generate-inputs";
+import emlContent from "../../../circuits/tests/emls/coinbase-test.eml?raw";
+import InstructionsModal from "../components/InstructionsModal";
+import RecentAttestationsTable from "../components/RecentAttestationsTable";
+import BeforeProveModal from "../components/BeforeProveModal";
 import useGoogleAuth from "../hooks/useGoogleAuth";
-import {
-  RawEmailResponse,
-  fetchEmailList,
-  fetchEmailsRaw,
-} from "../hooks/useGmailClient";
-import { formatDateTime } from "../helpers/dateTimeFormat";
-import EmailInputMethod from "../components/EmailInputMethod";
+import { YourAttestations } from "../components/YourAttestaions";
+import { Footer } from "../components/Footer";
 
-const CIRCUIT_NAME = "twitter";
+interface EthereumProvider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on: (eventName: string, callback: (...args: any[]) => void) => void;
+  removeListener: (
+    eventName: string,
+    callback: (...args: any[]) => void
+  ) => void;
+}
 
-export const MainPage: React.FC<{}> = (props) => {
-  const { address } = useAccount();
+declare global {
+  interface Window {
+    ethereum?: EthereumProvider;
+  }
+}
+
+const s3Client = new S3Client({
+  region: import.meta.env.VITE_AWS_REGION,
+  credentials: {
+    accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID,
+    secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY,
+  },
+});
+
+export const MainPage: React.FC = () => {
+  const [walletAddress, setWalletAddress] = useState("");
+  const [isWalletConnected, setIsWalletConnected] = useState(false);
+  const [isPlatformSelected, setIsPlatformSelected] = useState(false);
+  const [nextEmailStep, setNextEmailStep] = useState(false);
+  const [nextProofStep, setNextProofStep] = useState(false);
+  const [generatingProof, setGeneratingProof] = useState(false);
+  const [isProofVerified, setIsProofVerified] = useState(false);
+  const [isFetchEmailLoading, setIsFetchEmailLoading] = useState(false);
+  const [fetchedEmails, setFetchedEmails] = useState<RawEmailResponse[]>([]);
+  const [exampleEmailContent, setExampleEmailContent] = useState("");
+  const [isBeforeProveModalOpen, setIsBeforeProveModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isProofReady, setIsProofReady] = useState(false);
+  const [proof, setProof] = useState<any>(null);
+  const [publicSignals, setPublicSignals] = useState<any>(null);
+  const [isMinting, setIsMinting] = useState(false);
+  const [mintError, setMintError] = useState<string | null>(null);
+  const [shouldMint, setShouldMint] = useState(false);
+
+  const [showYourAttestations, setShowYourAttestations] = useState(false);
 
   const {
     googleAuthToken,
     isGoogleAuthed,
     loggedInGmail,
-    scopesApproved,
     googleLogIn,
     googleLogOut,
   } = useGoogleAuth();
 
-  const [ethereumAddress, setEthereumAddress] = useState<string>(address ?? "");
-  const [emailFull, setEmailFull] = useState<string>(
-    localStorage.emailFull || ""
-  );
-  const [proof, setProof] = useState<string>(localStorage.proof || "");
-  const [publicSignals, setPublicSignals] = useState<string>(
-    localStorage.publicSignals || ""
-  );
-  const [displayMessage, setDisplayMessage] = useState<string>("Prove");
+  const { writeContract, data, error, isSuccess } = useWriteContract();
 
-  const [verificationMessage, setVerificationMessage] = useState("");
-  const [verificationPassed, setVerificationPassed] = useState(false);
-  const [lastAction, setLastAction] = useState<"" | "sign" | "verify" | "send">(
-    ""
-  );
-  const [isFetchEmailLoading, setIsFetchEmailLoading] = useState(false);
-  const [fetchedEmails, setFetchedEmails] = useState<RawEmailResponse[]>([]);
-  const [showBrowserWarning, setShowBrowserWarning] = useState<boolean>(false);
-  const [downloadProgress, setDownloadProgress] = useState<number>(0);
-  const [inputMethod, setInputMethod] = useState<
-    "GOOGLE" | "EML_FILE" | null
-  >();
-  const [status, setStatus] = useState<
-    | "not-started"
-    | "generating-input"
-    | "downloading-proof-files"
-    | "generating-proof"
-    | "error-bad-input"
-    | "error-failed-to-download"
-    | "error-failed-to-prove"
-    | "done"
-    | "sending-on-chain"
-    | "proof-files-downloaded-successfully"
-    | "sent"
-  >("not-started");
+  const openModal = () => setIsModalOpen(true);
+  const closeModal = () => setIsModalOpen(false);
 
-  const [stopwatch, setStopwatch] = useState<Record<string, number>>({
-    startedDownloading: 0,
-    finishedDownloading: 0,
-    startedProving: 0,
-    finishedProving: 0,
-  });
+  const connectWallet = async () => {
+    if (typeof window.ethereum !== "undefined") {
+      try {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        const accounts = (await window.ethereum.request({
+          method: "eth_accounts",
+        })) as string[];
+        setWalletAddress(accounts[0]);
+        setIsWalletConnected(true);
+      } catch (error) {
+        console.error("Failed to connect to MetaMask:", error);
+      }
+    } else {
+      console.log("MetaMask is not installed");
+    }
+  };
+
+  const handleContinueClick = () => {
+    setIsBeforeProveModalOpen(true);
+  };
+
+  const closeBeforeProveModal = () => {
+    setIsBeforeProveModalOpen(false);
+  };
+
+  const handleConfirmProve = () => {
+    closeBeforeProveModal();
+    setNextEmailStep(true);
+    console.log("User confirmed. Proceeding to next step.");
+  };
+
+  useEffect(() => {
+    setExampleEmailContent(emlContent);
+  }, []);
 
   useEffect(() => {
     if (isGoogleAuthed) {
@@ -95,76 +128,40 @@ export const MainPage: React.FC<{}> = (props) => {
   }, [isGoogleAuthed]);
 
   useEffect(() => {
-    const userAgent = navigator.userAgent;
-    const isChrome = userAgent.indexOf("Chrome") > -1;
-    if (!isChrome) {
-      setShowBrowserWarning(true);
-    }
+    const downloadZKey = async () => {
+      try {
+        await downloadProofFiles(
+          import.meta.env.VITE_CIRCUIT_ARTIFACTS_URL,
+          "coinbase",
+          () => {}
+        );
+      } catch (e) {
+        console.log(e);
+      }
+    };
+    downloadZKey();
   }, []);
-
-  useEffect(() => {
-    if (address) {
-      setEthereumAddress(address);
-    } else {
-      setEthereumAddress("");
-    }
-  }, [address]);
-
-  const recordTimeForActivity = (activity: string) => {
-    setStopwatch((prev) => ({
-      ...prev,
-      [activity]: Date.now(),
-    }));
-  };
-
-  const reformatProofForChain = (proofStr: string) => {
-    if (!proofStr) return [];
-
-    const proof = JSON.parse(proofStr);
-
-    return [
-      proof.pi_a.slice(0, 2),
-      proof.pi_b
-        .slice(0, 2)
-        .map((s: string[]) => s.reverse())
-        .flat(),
-      proof.pi_c.slice(0, 2),
-    ].flat();
-  };
-
-  const { config } = usePrepareContractWrite({
-    // @ts-ignore
-    address: import.meta.env.VITE_CONTRACT_ADDRESS,
-    abi: abi,
-    functionName: "mint",
-    args: [
-      reformatProofForChain(proof),
-      publicSignals ? JSON.parse(publicSignals) : [],
-    ],
-    enabled: !!(proof && publicSignals),
-    onError: (error: { message: any }) => {
-      console.error(error.message);
-      // TODO: handle errors
-    },
-  });
-
-  const { data, isLoading, isSuccess, write } = useContractWrite(config);
 
   const handleFetchEmails = async () => {
     try {
       setIsFetchEmailLoading(true);
       const emailListResponse = await fetchEmailList(
         googleAuthToken.access_token,
-        {}
+        {},
+        "You just received 99.99965314 SOL"
       );
 
-      const emailResponseMessages = emailListResponse.messages;
+      console.log("emailListResponse: ", emailListResponse);
+      const emailResponseMessages = emailListResponse[0].messages;
+      console.log("emailResponseMessages: ", emailResponseMessages);
       if (emailResponseMessages?.length > 0) {
         const emailIds = emailResponseMessages.map((message) => message.id);
         const emails = await fetchEmailsRaw(
           googleAuthToken.access_token,
           emailIds
         );
+
+        console.log("emails: ", emails);
 
         setFetchedEmails(emails);
       } else {
@@ -177,547 +174,481 @@ export const MainPage: React.FC<{}> = (props) => {
     }
   };
 
-  useMount(() => {
-    function handleKeyDown() {
-      setLastAction("");
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  });
+  const handlePlatformSelection = () => {
+    setIsPlatformSelected(!isPlatformSelected);
+  };
 
-  // local storage stuff
-  useUpdateEffect(() => {
-    if (emailFull) {
-      if (localStorage.emailFull !== emailFull) {
-        console.info("Wrote email to localStorage");
-        localStorage.emailFull = emailFull;
-      }
+  function reformatProofForContractCall(
+    proof: any
+  ): [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint] {
+    if (!proof || !proof.pi_a || !proof.pi_b || !proof.pi_c) {
+      throw new Error("Invalid proof structure");
     }
-    if (proof) {
-      if (localStorage.proof !== proof) {
-        console.info("Wrote proof to localStorage");
-        localStorage.proof = proof;
-      }
-    }
-    if (publicSignals) {
-      if (localStorage.publicSignals !== publicSignals) {
-        console.info("Wrote publicSignals to localStorage");
-        localStorage.publicSignals = publicSignals;
-      }
-    }
-  }, [emailFull, proof, publicSignals]);
 
-  // On file drop function to extract the text from the file
-  const onFileDrop = async (file: File) => {
-    if (file.name.endsWith(".eml")) {
-      const content = await file.text();
-      setEmailFull(content);
-    } else {
-      alert("Only .eml files are allowed.");
+    return [
+      BigInt(proof.pi_a[0]),
+      BigInt(proof.pi_a[1]),
+      BigInt(proof.pi_b[0][1]),
+      BigInt(proof.pi_b[0][0]),
+      BigInt(proof.pi_b[1][1]),
+      BigInt(proof.pi_b[1][0]),
+      BigInt(proof.pi_c[0]),
+      BigInt(proof.pi_c[1]),
+    ];
+  }
+
+  function reformatSignalsForContractCall(publicSignals: any) {
+    return publicSignals.map((signal: string) => BigInt(signal));
+  }
+
+  const handleMint = async () => {
+    if (!proof || !publicSignals) {
+      console.error("Proof or public signals are missing");
+      return;
+    }
+
+    const reformattedProof = reformatProofForContractCall(proof);
+    console.log("reformattedProof: ", reformattedProof);
+    const reformattedSignals = reformatSignalsForContractCall(publicSignals);
+    console.log("reformattedSignals: ", reformattedSignals);
+
+    try {
+      const result = await writeContract({
+        abi,
+        address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
+        functionName: "mint",
+        args: [reformattedProof, reformattedSignals],
+      });
+
+      console.log("Transaction submitted:", result);
+    } catch (err) {
+      console.error("Error calling mint function:", err);
+      throw err;
     }
   };
 
-  useEffect(() => {
-    const downloadZKey = async () => {
-      console.time("zk-dl");
+  const handleProofStep = useCallback(async () => {
+    setNextProofStep(true);
+    setGeneratingProof(true);
 
-      recordTimeForActivity("startedDownloading");
-      setStatus("downloading-proof-files");
-      try {
-        await downloadProofFiles(
-          // @ts-ignore
-          import.meta.env.VITE_CIRCUIT_ARTIFACTS_URL,
-          CIRCUIT_NAME,
-          () => {
-            setDownloadProgress((p) => p + 1);
-          }
-        );
-        setStatus("proof-files-downloaded-successfully");
-      } catch (e) {
-        console.log(e);
-        setDisplayMessage("Error downloading proof files");
-        setStatus("error-failed-to-download");
-        return;
+    try {
+      const emailContent = exampleEmailContent;
+      console.log("handleProofStep emailContent: ", emailContent);
+      console.log("handleProofStep walletAddress: ", walletAddress);
+
+      const circuitInputs = await generateCoinbaseVerifierCircuitInputs(
+        Buffer.from(emailContent),
+        walletAddress
+      );
+
+      console.log("handleProofStep circuitInputs: ", circuitInputs);
+      const base_url = import.meta.env.VITE_CIRCUIT_ARTIFACTS_URL;
+      console.log("handleProofStep base_url: ", base_url);
+      const { proof, publicSignals } = await generateProof(
+        circuitInputs,
+        import.meta.env.VITE_CIRCUIT_ARTIFACTS_URL,
+        "coinbase"
+      );
+
+      console.log("handleProofStep proof: ", proof);
+      console.log("handleProofStep publicSignals", publicSignals);
+
+      const proofUploadCommand = new PutObjectCommand({
+        Bucket: import.meta.env.VITE_AWS_BUCKET,
+        Key: "proofs/latest_proof.json",
+        Body: JSON.stringify({ proof, publicSignals }),
+        ACL: "public-read",
+      });
+
+      await s3Client.send(proofUploadCommand);
+      console.log("Proof uploaded successfully");
+
+      const proofDownloadCommand = new GetObjectCommand({
+        Bucket: import.meta.env.VITE_AWS_BUCKET,
+        Key: "proofs/latest_proof.json",
+      });
+      const proofData = await s3Client.send(proofDownloadCommand);
+
+      const proofBody = await proofData.Body?.transformToString();
+      if (!proofBody) {
+        throw new Error("Downloaded proof body is empty");
       }
 
-      console.timeEnd("zk-dl");
-      recordTimeForActivity("finishedDownloading");
+      const { proof: downloadedProof, publicSignals: downloadedPublicSignals } =
+        JSON.parse(proofBody);
+
+      console.log("handleProofStep downloadedProof: ", downloadedProof);
+      console.log(
+        "handleProofStep downloadedPublicSignals: ",
+        downloadedPublicSignals
+      );
+
+      setProof(downloadedProof);
+      setPublicSignals(downloadedPublicSignals);
+      setIsProofReady(true);
+      setShouldMint(true);
+    } catch (error) {
+      console.error("Error in handleProofStep:", error);
+      setMintError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
+    } finally {
+      setGeneratingProof(false);
+    }
+  }, [walletAddress, exampleEmailContent]);
+
+  useEffect(() => {
+    const mintIfReady = async () => {
+      if (shouldMint && proof && publicSignals) {
+        try {
+          setIsMinting(true);
+          await handleMint();
+          setIsProofVerified(true);
+          setShouldMint(false);
+        } catch (error) {
+          console.error("Error in minting:", error);
+          setMintError(
+            error instanceof Error ? error.message : "An unknown error occurred"
+          );
+        } finally {
+          setIsMinting(false);
+        }
+      }
     };
 
-    downloadZKey();
-  }, []);
+    mintIfReady();
+  }, [proof, publicSignals, shouldMint]);
+
+  const handleContinueAndMint = async () => {
+    setMintError(null);
+    if (!isProofReady) {
+      await handleProofStep();
+    } else {
+      setShouldMint(true);
+    }
+  };
 
   return (
-    <Container>
-      {showBrowserWarning && (
-        <TopBanner
-          message={"ZK Email only works on Chrome or Chromium-based browsers."}
-        />
-      )}
-      <div className="title">
-        <Header>Proof of Twitter: ZK Email Demo</Header>
-      </div>
+    <div className="h-screen flex flex-col overflow-hidden">
+      <header className="flex-shrink-0">
+        <div className="bg-[#404040] h-[70px] flex items-center justify-center text-white">
+          <p className="text-[18px] font-[600] tracking-[0.5]">
+            Introducing: <span className="font-normal">Our Vision →</span>{" "}
+          </p>
+        </div>
+        <div className="bg-white bg-opacity-70 h-[80px] flex items-center justify-between px-6">
+          <img src="/obl-logo-alt.svg" alt="obl-logo" width={180} height={25} />
 
-      <Col
-        style={{
-          gap: "8px",
-          maxWidth: "720px",
-          margin: "0 auto",
-          marginBottom: "2rem",
-        }}
-      >
-        <span style={{ color: "rgba(255, 255, 255, 0.7)" }}>
-          Welcome to a demo page for ZK-Email technology.{" "}
-          <a href="https://github.com/zk-email-verify/zk-email-verify/">
-            Our library
-          </a>{" "}
-          will allow you to generate zero knowledge proofs proving you received
-          some email and mask out any private data, without trusting our server
-          to keep your privacy. This demo is just one use case that lets you
-          prove you own a Twitter username on-chain, by verifying confirmation
-          emails (and their normally-hidden headers) from Twitter. Visit{" "}
-          <a href="https://prove.email/blog/zkemail">our blog</a> or{" "}
-          <a href="https://prove.email">website</a> to learn more about ZK
-          Email, and find the technical details on how this demo is built{" "}
-          <a href="https://prove.email/blog/twitter">here</a>.
-          <br />
-          <br />
-          If you wish to generate a ZK proof of Twitter badge (NFT), you must:
-        </span>
-        <NumberedStep step={1}>
-          Send yourself a{" "}
-          <a
-            href="https://twitter.com/account/begin_password_reset"
-            target="_blank"
-            rel="noreferrer"
-          >
-            password reset email
-          </a>{" "}
-          from Twitter. (Reminder: Twitter name with emoji might fail to pass
-          DKIM verification)
-        </NumberedStep>
-        <NumberedStep step={2}>
-          In your inbox, find the email from Twitter and click the three dot
-          menu, then "Show original" then "Copy to clipboard". If on Outlook,
-          download the original email as .eml and copy it instead.
-        </NumberedStep>
-        <NumberedStep step={3}>
-          Copy paste or drop that into the box below. Note that we cannot use
-          this to phish you: we do not know your password, and we never get this
-          email info because we have no server at all. We are actively searching
-          for a less sketchy email.
-        </NumberedStep>
-        <NumberedStep step={4}>
-          Paste in your sending Ethereum address. This ensures that no one else
-          can "steal" your proof for another account (frontrunning protection!).
-        </NumberedStep>
-        <NumberedStep step={5}>
-          Click <b>"Prove"</b>. Note it is completely client side and{" "}
-          <a
-            href="https://github.com/zkemail/proof-of-twitter/"
-            target="_blank"
-            rel="noreferrer"
-          >
-            open source
-          </a>
-          , and no server ever sees your private information.
-        </NumberedStep>
-        <NumberedStep step={6}>
-          Click <b>"Verify"</b> and then <b>"Mint Twitter Badge On-Chain"</b>,
-          and approve to mint the NFT badge that proves Twitter ownership! Note
-          that it is 700K gas right now so only feasible on Sepolia, though we
-          intend to reduce this soon.
-        </NumberedStep>
-      </Col>
-      <Main>
-        <Column>
-          <SubHeader>Input</SubHeader>
-          {inputMethod || !import.meta.env.VITE_GOOGLE_CLIENT_ID ? null : (
-            <EmailInputMethod
-              onClickGoogle={() => {
-                try {
-                  setIsFetchEmailLoading(true);
-                  setInputMethod("GOOGLE");
-                  googleLogIn();
-                } catch (e) {
-                  console.log(e);
-                  setIsFetchEmailLoading(false);
-                }
-              }}
-              onClickEMLFile={() => {
-                setInputMethod("EML_FILE");
-              }}
-            />
-          )}
-          {inputMethod ? (
-            <TextButton onClick={() => setInputMethod(null)}>
-              ←{"  "}Go Back
-            </TextButton>
-          ) : null}
-          {inputMethod === "GOOGLE" ? (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                flexDirection: "column",
-                padding: "1.25rem",
-              }}
-            >
-              {isFetchEmailLoading ? (
-                <div className="loader" />
-              ) : (
-                fetchedEmails.map((email, index) => (
-                  <div
-                    style={{
-                      borderBottom: "1px solid white",
-                      width: "100%",
-                      padding: "0 1rem",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      color:
-                        email.decodedContents === emailFull
-                          ? "#8272e4"
-                          : "white",
-                      borderTop: index === 0 ? "1px solid white" : "none", // Conditional border top
-                    }}
-                    onClick={() => {
-                      setEmailFull(email.decodedContents);
-                    }}
-                  >
-                    <p>{email.subject}</p>
-                    <p>{formatDateTime(email.internalDate)}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          ) : null}
-          {inputMethod === "EML_FILE" || !import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
-            <>
-              {" "}
-              <DragAndDropTextBox onFileDrop={onFileDrop} />
-              <h3
-                style={{
-                  textAlign: "center",
-                  marginTop: "0rem",
-                  marginBottom: "0rem",
-                }}
+          <div className="flex items-center space-x-6">
+            {isWalletConnected && (
+              <a
+                href="#"
+                className={`font-semibold text-[#0A0A0A] ${
+                  showYourAttestations ? "underline" : ""
+                }`}
+                onClick={() => setShowYourAttestations(true)}
               >
-                OR
-              </h3>
-              <LabeledTextArea
-                label="Full Email with Headers"
-                value={emailFull}
-                onChange={(e) => {
-                  setEmailFull(e.currentTarget.value);
-                }}
-              />
-            </>
-          ) : null}
-          <SingleLineInput
-            label="Ethereum Address"
-            value={ethereumAddress}
-            onChange={(e) => {
-              setEthereumAddress(e.currentTarget.value);
-            }}
-          />
-          <Button
-            data-testid="prove-button"
-            disabled={
-              displayMessage !== "Prove" ||
-              emailFull.length === 0 ||
-              ethereumAddress.length === 0 ||
-              status !== "proof-files-downloaded-successfully"
-            }
-            onClick={async () => {
-              let input: ITwitterCircuitInputs;
-              try {
-                setDisplayMessage("Generating proof...");
-                setStatus("generating-input");
-
-                input = await generateTwitterVerifierCircuitInputs(
-                  Buffer.from(emailFull),
-                  ethereumAddress
-                );
-
-                console.log("Generated input:", JSON.stringify(input));
-              } catch (e) {
-                console.log("Error generating input", e);
-                setDisplayMessage("Prove");
-                setStatus("error-bad-input");
-                return;
-              }
-
-              console.time("zk-gen");
-              recordTimeForActivity("startedProving");
-              setDisplayMessage(
-                "Starting proof generation... (this will take 6-10 minutes and ~5GB RAM)"
-              );
-              setStatus("generating-proof");
-              console.log("Starting proof generation");
-              // alert("Generating proof, will fail due to input");
-              const { proof, publicSignals } = await generateProof(
-                input,
-                // @ts-ignore
-                import.meta.env.VITE_CIRCUIT_ARTIFACTS_URL,
-                CIRCUIT_NAME
-              );
-              //const proof = JSON.parse('{"pi_a": ["19201501460375869359786976350200749752225831881815567077814357716475109214225", "11505143118120261821370828666956392917988845645366364291926723724764197308214", "1"], "pi_b": [["17114997753466635923095897108905313066875545082621248342234075865495571603410", "7192405994185710518536526038522451195158265656066550519902313122056350381280"], ["13696222194662648890012762427265603087145644894565446235939768763001479304886", "2757027655603295785352548686090997179551660115030413843642436323047552012712"], ["1", "0"]], "pi_c": ["6168386124525054064559735110298802977718009746891233616490776755671099515304", "11077116868070103472532367637450067545191977757024528865783681032080180232316", "1"], "protocol": "groth16", "curve": "bn128"}');
-              //const publicSignals = JSON.parse('["0", "0", "0", "0", "0", "0", "0", "0", "32767059066617856", "30803244233155956", "0", "0", "0", "0", "27917065853693287", "28015", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "113659471951225", "0", "0", "1634582323953821262989958727173988295", "1938094444722442142315201757874145583", "375300260153333632727697921604599470", "1369658125109277828425429339149824874", "1589384595547333389911397650751436647", "1428144289938431173655248321840778928", "1919508490085653366961918211405731923", "2358009612379481320362782200045159837", "518833500408858308962881361452944175", "1163210548821508924802510293967109414", "1361351910698751746280135795885107181", "1445969488612593115566934629427756345", "2457340995040159831545380614838948388", "2612807374136932899648418365680887439", "16021263889082005631675788949457422", "299744519975649772895460843780023483", "3933359104846508935112096715593287", "556307310756571904145052207427031380052712977221"]');
-              console.log("Finished proof generation");
-              console.timeEnd("zk-gen");
-              recordTimeForActivity("finishedProving");
-
-              console.log("publicSignals", publicSignals);
-
-              // alert("Done generating proof");
-              setProof(JSON.stringify(proof));
-              // let kek = publicSignals.map((x: string) => BigInt(x));
-              // let soln = packedNBytesToString(kek.slice(0, 12));
-              // let soln2 = packedNBytesToString(kek.slice(12, 147));
-              // let soln3 = packedNBytesToString(kek.slice(147, 150));
-              // setPublicSignals(`From: ${soln}\nTo: ${soln2}\nUsername: ${soln3}`);
-              setPublicSignals(JSON.stringify(publicSignals));
-
-              if (!input) {
-                setStatus("error-failed-to-prove");
-                return;
-              }
-              setLastAction("sign");
-              setDisplayMessage("Finished computing ZK proof");
-              setStatus("done");
-              try {
-                (window as any).cJson = JSON.stringify(input);
-                console.log(
-                  "wrote circuit input to window.cJson. Run copy(cJson)"
-                );
-              } catch (e) {
-                console.error(e);
-              }
-            }}
-          >
-            {displayMessage}
-          </Button>
-          {displayMessage ===
-            "Downloading compressed proving files... (this may take a few minutes)" && (
-            <ProgressBar
-              width={downloadProgress * 10}
-              label={`${downloadProgress} / 10 items`}
-            />
-          )}
-          <ProcessStatus status={status}>
-            {status !== "not-started" ? (
-              <div>
-                Status:
-                <span data-testid={"status-" + status}>{status}</span>
+                Your attestations
+              </a>
+            )}
+            <button
+              onClick={openModal}
+              className="font-semibold flex items-center text-[#0A0A0A] space-x-2"
+            >
+              <p className="tracking-[0.5]">Instructions</p>
+              <img src="/info-icon.svg" height={16} width={16} alt="Info" />
+            </button>
+            {isWalletConnected ? (
+              <div className="flex items-center border font-medium rounded-lg border-[#D4D4D4] bg-white text-[#0C2B32] px-4 py-2 shadow-md h-[31px]">
+                <img
+                  src="/square-dot.svg"
+                  height={15}
+                  width={15}
+                  alt="Wallet"
+                  className="fill-red"
+                />
+                <p className="pl-2">Connected</p>
+                <ChevronDown className="inline-block w-4 h-4 ml-3" />
               </div>
             ) : (
-              <div data-testid={"status-" + status}></div>
+              <button
+                onClick={connectWallet}
+                className="flex border font-medium rounded-lg border-[#D4D4D4] bg-white items-center text-[#0C2B32] px-4 py-2 transition-colors hover:bg-gray-50 shadow-md h-[31px]"
+              >
+                <img
+                  src="/wallet-icon.svg"
+                  height={15}
+                  width={15}
+                  alt="Wallet"
+                />
+                <p className="pl-2">Connect Wallet</p>
+              </button>
             )}
-            <TimerDisplay timers={stopwatch} />
-          </ProcessStatus>
-        </Column>
-        <Column>
-          <SubHeader>Output</SubHeader>
-          <LabeledTextArea
-            label="Proof Output"
-            value={proof}
-            onChange={(e) => {
-              setProof(e.currentTarget.value);
-            }}
-            warning={verificationMessage}
-            warningColor={verificationPassed ? "green" : "red"}
-          />
-          <LabeledTextArea
-            label="..."
-            value={publicSignals}
-            secret
-            onChange={(e) => {
-              setPublicSignals(e.currentTarget.value);
-            }}
-            // warning={
-            // }
-          />
-          <Button
-            disabled={emailFull.trim().length === 0 || proof.length === 0}
-            onClick={async () => {
-              try {
-                setLastAction("verify");
-                let ok = true;
-                const res: boolean = await verifyProof(
-                  JSON.parse(proof),
-                  JSON.parse(publicSignals),
-                  // @ts-ignore
-                  import.meta.env.VITE_CIRCUIT_ARTIFACTS_URL,
-                  CIRCUIT_NAME
-                );
-                console.log(res);
-                if (!res) throw Error("Verification failed!");
-                setVerificationMessage("Passed!");
-                setVerificationPassed(ok);
-              } catch (er: any) {
-                setVerificationMessage("Failed to verify " + er.toString());
-                setVerificationPassed(false);
-              }
-            }}
-          >
-            Verify
-          </Button>
-          <Button
-            disabled={!verificationPassed || isLoading || isSuccess || !write}
-            onClick={async () => {
-              setStatus("sending-on-chain");
-              write?.();
-            }}
-          >
-            {isSuccess
-              ? "Successfully sent to chain!"
-              : isLoading
-              ? "Confirm in wallet"
-              : !write
-              ? "Connect Wallet first, scroll to top!"
-              : verificationPassed
-              ? "Mint Twitter badge on-chain"
-              : "Verify first, before minting on-chain!"}
-          </Button>
-          {isSuccess && (
-            <div>
-              Transaction:{" "}
-              <a href={"https://sepolia.etherscan.io/tx/" + data?.hash}>
-                {data?.hash}
-              </a>
-            </div>
-          )}
-        </Column>
-      </Main>
-    </Container>
-  );
-};
-
-const ProcessStatus = styled.div<{ status: string }>`
-  font-size: 8px;
-  padding: 8px;
-  border-radius: 8px;
-`;
-
-const TimerDisplayContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  font-size: 8px;
-`;
-
-const TimerDisplay = ({ timers }: { timers: Record<string, number> }) => {
-  return (
-    <TimerDisplayContainer>
-      {timers["startedDownloading"] && timers["finishedDownloading"] ? (
-        <div>
-          Zkey Download time:&nbsp;
-          <span data-testid="download-time">
-            {timers["finishedDownloading"] - timers["startedDownloading"]}
-          </span>
-          ms
+          </div>
         </div>
-      ) : (
-        <div></div>
-      )}
-      {timers["startedProving"] && timers["finishedProving"] ? (
-        <div>
-          Proof generation time:&nbsp;
-          <span data-testid="proof-time">
-            {timers["finishedProving"] - timers["startedProving"]}
-          </span>
-          ms
-        </div>
-      ) : (
-        <div></div>
-      )}
-    </TimerDisplayContainer>
-  );
-};
+      </header>
 
-const Header = styled.span`
-  font-weight: 600;
-  margin-bottom: 1em;
-  color: #fff;
-  font-size: 2.25rem;
-  line-height: 2.5rem;
-  letter-spacing: -0.02em;
-`;
+      {isSuccess && <p>Transaction successful! Hash: {data}</p>}
+      {error && <p>Error: {error.message}</p>}
+      <InstructionsModal isOpen={isModalOpen} onClose={closeModal} />
+      <div className="flex-grow overflow-auto bg-[#FAF8F4]">
+        <div className="flex flex-col items-center py-8">
+          <div className="w-1/2 space-y-6">
+            {(isProofVerified || showYourAttestations) && <YourAttestations />}
+            {!isProofVerified && !showYourAttestations && (
+              <div className="bg-white rounded-lg p-6 shadow-sm">
+                {!isPlatformSelected && (
+                  <>
+                    <h2 className="font-geist-mono font-medium mb-2 text-[#525252] text-[12px] tracking-[0.5]">
+                      1. GET STARTED WITH COINBASE
+                    </h2>
+                    <p className="text-[18px] py-1 tracking-[0.5] text-[#0C2B32] font-[400]">
+                      Securely transform your data into a private attestation
+                      and unlock rewards.
+                    </p>
+                  </>
+                )}
 
-const SubHeader = styled(Header)`
-  font-size: 1.7em;
-  margin-bottom: 16px;
-  color: rgba(255, 255, 255, 0.9);
-`;
+                {!isPlatformSelected ? (
+                  <div className="space-y-3 pt-3">
+                    <div
+                      className="flex items-center bg-[#FAFAFA] justify-between border border-gray-200 rounded-md p-4 cursor-pointer hover:bg-gray-50"
+                      onClick={handlePlatformSelection}
+                    >
+                      <span className="text-base font-medium">Coinbase</span>
+                      <img
+                        src="/coinbase-letter-logo.svg"
+                        alt="Coinbase"
+                        width={16}
+                        height={16}
+                      />
+                    </div>
+                    <div
+                      className="flex items-center bg-[#FAFAFA] justify-between border border-gray-200 rounded-md p-4"
+                      onClick={() => {}}
+                    >
+                      <span className="text-base font-medium text-[#737373]">
+                        X / Twitter (Coming soon)
+                      </span>
+                      <img src="/x-logo.svg" alt="X" width={16} height={16} />
+                    </div>
+                    <div
+                      className="flex items-center bg-[#FAFAFA] justify-between border border-gray-200 rounded-md p-4"
+                      onClick={() => {}}
+                    >
+                      <span className="text-base font-medium text-[#737373]">
+                        Airbnb (Coming soon)
+                      </span>
+                      <img
+                        src="/airbnb.svg"
+                        alt="Airbnb"
+                        width={16}
+                        height={16}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center">
+                    <div className="w-[150px] flex items-center border px-2 py-1 space-x-2 mr-4 rounded-2xl">
+                      <img
+                        src="/check.svg"
+                        alt="Check"
+                        width={20}
+                        height={20}
+                      />
+                      <span className="text-xs text-gray-600">
+                        Platform Selected
+                      </span>
+                    </div>
+                    <img
+                      src="/coinbase-logo.svg"
+                      alt="Coinbase"
+                      width={90}
+                      height={16}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
-const Main = styled(Row)`
-  width: 100%;
-  gap: 1rem;
-`;
-
-const Column = styled(Col)`
-  width: 100%;
-  gap: 1rem;
-  align-self: flex-start;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 1rem;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-`;
-
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  margin: 0 auto;
-  & .title {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  & .main {
-    & .signaturePane {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      & > :first-child {
-        height: calc(30vh + 24px);
+            {isPlatformSelected &&
+              isWalletConnected &&
+              !nextEmailStep &&
+              !showYourAttestations &&
+              !isProofVerified && (
+                <>
+                  <button
+                    onClick={handleContinueClick}
+                    className="w-full text-xl font-semibold border-2 border-[#0A0A0A] text-[#0A0A0A] bg-white rounded-lg p-6 shadow-sm text-center"
+                  >
+                    Continue
+                  </button>
+                  {/* <div className="w-full text-center">
+                    <a
+                      href="#"
+                      className="w-full text-center text-sm font-geist-mono"
+                    >
+                      <span className="underline">READ VISION</span> ↗
+                    </a>
+                  </div> */}
+                </>
+              )}
+            {!nextEmailStep && !showYourAttestations && (
+              <RecentAttestationsTable />
+            )}
+            <BeforeProveModal
+              isOpen={isBeforeProveModalOpen}
+              onClose={closeBeforeProveModal}
+              onConfirm={handleConfirmProve}
+            />
+            {nextEmailStep && !isProofVerified && !showYourAttestations && (
+              <div className="bg-white rounded-lg p-6 shadow-sm">
+                <h2 className="text-xs font-geist-mono text-[#525252] mb-4">
+                  CONNECT GOOGLE ACCOUNT
+                </h2>
+                <p className="text-base mb-6">
+                  We&apos;ll look for any Coinbase USDC rewards emails so that
+                  you can start earning rewards.
+                </p>
+                {!loggedInGmail && (
+                  <div className="flex justify-center">
+                    <button
+                      className="flex items-center justify-center py-2 px-12 border border-black rounded-2xl text-gray-700 bg-white hover:bg-gray-50"
+                      onClick={() => googleLogIn()}
+                    >
+                      <img
+                        src="/google-logo.svg"
+                        alt="Google logo"
+                        width={20}
+                        height={20}
+                        className="mr-2"
+                      />
+                      <p className="text-sm">Sign in with Google</p>
+                    </button>
+                  </div>
+                )}
+                {loggedInGmail &&
+                  fetchedEmails.length > 0 &&
+                  !isProofVerified && (
+                    <div className="bg-[#FAFAFA] border border-gray-200 rounded-lg">
+                      <div className="flex flex-col p-6 space-y-2 ">
+                        <div className="flex justify-between items-start">
+                          <p className="text-gray-600 font-medium w-1/6">
+                            Sender
+                          </p>
+                          <p className="text-black font-normal w-5/6">
+                            {
+                              parseEmailContent(
+                                fetchedEmails[0].decodedContents
+                              ).from
+                            }
+                          </p>
+                        </div>
+                        <div className="flex justify-between items-start">
+                          <p className="text-gray-600 font-medium w-1/6">
+                            Subject
+                          </p>
+                          <p className="text-black font-normal w-5/6">
+                            {fetchedEmails[0].subject}
+                          </p>
+                        </div>
+                        <div className="flex justify-between items-start">
+                          <p className="text-gray-600 font-medium w-1/6">
+                            Date
+                          </p>
+                          <p className="text-black font-normal w-5/6">
+                            {convertTimestampToDate(
+                              parseInt(fetchedEmails[0].internalDate)
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="w-full my-2 h-px bg-[#E5E5E5]" />
+                      <div className="mt-6 flex justify-center">
+                        <div
+                          className="prose max-w-none"
+                          dangerouslySetInnerHTML={{
+                            __html: parseEmailContent(
+                              fetchedEmails[0].decodedContents
+                            ).htmlBody,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                {
+                  /* fetchedEmails.length > 0 && */ !isProofVerified &&
+                    isGoogleAuthed && (
+                      <button
+                        onClick={handleContinueAndMint}
+                        disabled={generatingProof}
+                        className={`w-full text-xl mt-6 font-semibold
+      ${
+        generatingProof
+          ? "bg-white"
+          : "bg-white border-2 border-[#0A0A0A] shadow-sm"
       }
-    }
-  }
-
-  & .bottom {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    & p {
-      text-align: center;
-    }
-    & .labeledTextAreaContainer {
-      align-self: center;
-      max-width: 50vw;
-      width: 500px;
-    }
-  }
-
-  a {
-    color: rgba(30, 144, 255, 0.9); /* Bright blue color */
-    text-decoration: none; /* Optional: Removes the underline */
-  }
-
-  a:hover {
-    color: rgba(65, 105, 225, 0.9); /* Darker blue color on hover */
-  }
-
-  a:visited {
-    color: rgba(153, 50, 204, 0.9); /* Purple color for visited links */
-  }
-
-  a:active {
-    color: rgba(
-      255,
-      69,
-      0,
-      0.9
-    ); /* Orange-red color for active (clicked) links */
-  }
-`;
+      text-[#217F90] rounded-lg p-6 text-center
+      flex items-center justify-center`}
+                      >
+                        {generatingProof ? (
+                          <>
+                            <Loader2 className="animate-spin mr-2 h-5 w-5" />
+                            Generating Proof...
+                          </>
+                        ) : (
+                          "Continue"
+                        )}
+                      </button>
+                    )
+                }
+              </div>
+            )}
+            {isProofVerified && (
+              <div className="flex flex-col items-center justify-center p-6 bg-white rounded-lg shadow-md">
+                <h2 className="text-4xl font-medium mb-4 text-gray-800">
+                  Start earning rewards
+                </h2>
+                <button
+                  className="bg-[#217F90] hover:bg-teal-700 text-white font-bold py-2 px-4 rounded flex items-center"
+                  onClick={() => console.log("View profile clicked")}
+                >
+                  View your profile
+                  <svg
+                    className="w-4 h-4 ml-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                  <svg
+                    className="w-4 h-4 -ml-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        <Footer />
+      </div>
+    </div>
+  );
+};

@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import tsconfig from "vite-tsconfig-paths";
 import "rollup-plugin-node-polyfills";
-import commonjs from 'vite-plugin-commonjs'
+import commonjs from "vite-plugin-commonjs";
 
 export default {
   server: {
@@ -10,6 +10,7 @@ export default {
   preview: {
     port: 3000,
   },
+  assetsInclude: ["**/*.eml"],
   publicDir: "public",
   plugins: [commonjs(), react(), tsconfig()],
   resolve: {

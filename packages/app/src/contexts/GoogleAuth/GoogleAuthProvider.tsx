@@ -7,7 +7,7 @@ import {
 
 // import GoogleAuthContext from './GoogleAuthContext'
 import { fetchProfile } from "../../hooks/useGmailClient";
-import GoogleAuthContext from "./GoogleAuthContext";
+import { GoogleAuthContext } from "./GoogleAuthContext";
 
 interface ProvidersProps {
   children: ReactNode;

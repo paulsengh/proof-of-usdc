@@ -13,7 +13,7 @@ print("AWS_SECRET_ACCESS_KEY:", os.getenv('AWS_SECRET_ACCESS_KEY'))
 s3 = boto3.client('s3', aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'))  # Ask Aayush for the access key and secret access key
 
 parser = argparse.ArgumentParser(description='Upload the compressed zkey, cpp, and js compilation files to S3 bucket')
-parser.add_argument('--bucket_name', type=str, default='zkcoinbase-zkey-chunks', help='Name of the S3 bucket')
+parser.add_argument('--bucket_name', type=str, default='', help='Name of the S3 bucket')
 
 default_build_dir = '../build'
 build_dir_env = os.getenv('BUILD_DIR')
