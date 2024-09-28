@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import {
   fetchEmailList,
   fetchEmailsRaw,
@@ -25,6 +25,8 @@ import InstructionsModal from "../components/InstructionsModal";
 import RecentAttestationsTable from "../components/RecentAttestationsTable";
 import BeforeProveModal from "../components/BeforeProveModal";
 import useGoogleAuth from "../hooks/useGoogleAuth";
+import { YourAttestations } from "../components/YourAttestaions";
+import { Footer } from "../components/Footer";
 
 interface EthereumProvider {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -68,6 +70,8 @@ export const MainPage: React.FC = () => {
   const [isMinting, setIsMinting] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
   const [shouldMint, setShouldMint] = useState(false);
+
+  const [showYourAttestations, setShowYourAttestations] = useState(false);
 
   const {
     googleAuthToken,
@@ -328,43 +332,48 @@ export const MainPage: React.FC = () => {
     <div className="h-screen flex flex-col overflow-hidden">
       <header className="flex-shrink-0">
         <div className="bg-[#404040] h-[70px] flex items-center justify-center text-white">
-          <p className="text-lg">Introducing: Our Vision → </p>
+          <p className="text-[18px] font-[600] tracking-[0.5]">Introducing: <span className="font-normal">Our Vision →</span> </p>
         </div>
         <div className="bg-white bg-opacity-70 h-[80px] flex items-center justify-between px-6">
-          <img src="/obl-logo.svg" alt="obl-logo" width={180} height={25} />
+          <img src="/obl-logo-alt.svg" alt="obl-logo" width={180} height={25} />
 
           <div className="flex items-center space-x-6">
-            <a href="#" className="font-semibold text-[#0A0A0A]">
-              Your attestations
-            </a>
+            {isWalletConnected && (
+              <a
+                href="#"
+                className={`font-semibold text-[#0A0A0A] ${
+                  showYourAttestations ? "underline" : ""
+                }`}
+                onClick={() => setShowYourAttestations(true)}
+              >
+                Your attestations
+              </a>
+            )}
             <button
               onClick={openModal}
-              className="font-semibold flex items-center text-[#0C2B32] space-x-2"
+              className="font-semibold flex items-center text-[#0A0A0A] space-x-2"
             >
-              <p>Instructions</p>
+              <p className="tracking-[0.5]">Instructions</p>
               <img src="/info-icon.svg" height={16} width={16} alt="Info" />
             </button>
             {isWalletConnected ? (
-              <div className="flex items-center border font-medium rounded-lg border-[#D4D4D4] bg-white text-[#0C2B32] px-4 py-2">
+              <div className="flex items-center border font-medium rounded-lg border-[#D4D4D4] bg-white text-[#0C2B32] px-4 py-2 shadow-md h-[31px]">
                 <img
-                  src="/wallet-icon.svg"
+                  src="/square-dot.svg"
                   height={15}
                   width={15}
                   alt="Wallet"
+                  className="fill-red"
                 />
                 <p className="pl-2">Connected</p>
+                <ChevronDown className="inline-block w-4 h-4 ml-3" />
               </div>
             ) : (
               <button
                 onClick={connectWallet}
-                className="flex border font-medium rounded-lg border-[#D4D4D4] bg-white items-center text-[#0C2B32] px-4 py-2 transition-colors hover:bg-gray-50"
+                className="flex border font-medium rounded-lg border-[#D4D4D4] bg-white items-center text-[#0C2B32] px-4 py-2 transition-colors hover:bg-gray-50 shadow-md h-[31px]"
               >
-                <img
-                  src="/wallet-icon.svg"
-                  height={15}
-                  width={15}
-                  alt="Wallet"
-                />
+                <img src="/wallet.svg" height={15} width={15} alt="Wallet" />
                 <p className="pl-2">Connect Wallet</p>
               </button>
             )}
@@ -378,25 +387,15 @@ export const MainPage: React.FC = () => {
       <div className="flex-grow overflow-auto bg-[#FAF8F4]">
         <div className="flex flex-col items-center py-8">
           <div className="w-1/2 space-y-6">
-            {isProofVerified && (
-              <div className="flex items-center p-4 text-white bg-[#259991]">
-                <img
-                  src="/_icon-small.svg"
-                  height={40}
-                  width={40}
-                  alt="Check"
-                />
-                <p className="ml-4 font-medium text-lg">You're verified</p>
-              </div>
-            )}
-            {!isProofVerified && (
+            {(isProofVerified || showYourAttestations) && <YourAttestations />}
+            {!isProofVerified && !showYourAttestations && (
               <div className="bg-white rounded-lg p-6 shadow-sm">
                 {!isPlatformSelected && (
                   <>
-                    <h2 className="text-sm font-geist-mono font-medium mb-4">
+                    <h2 className="font-geist-mono font-medium mb-2 text-[#525252] text-[12px] tracking-[0.5]">
                       1. GET STARTED WITH COINBASE
                     </h2>
-                    <p className="text-lg py-2">
+                    <p className="text-[18px] py-1 tracking-[0.5] text-[#0C2B32] font-[400]">
                       Securely transform your data into a private attestation
                       and unlock rewards.
                     </p>
@@ -468,6 +467,7 @@ export const MainPage: React.FC = () => {
             {isPlatformSelected &&
               isWalletConnected &&
               !nextEmailStep &&
+              !showYourAttestations &&
               !isProofVerified && (
                 <>
                   <button
@@ -486,13 +486,15 @@ export const MainPage: React.FC = () => {
                   </div> */}
                 </>
               )}
-            {!nextEmailStep && <RecentAttestationsTable />}
+            {!nextEmailStep && !showYourAttestations && (
+              <RecentAttestationsTable />
+            )}
             <BeforeProveModal
               isOpen={isBeforeProveModalOpen}
               onClose={closeBeforeProveModal}
               onConfirm={handleConfirmProve}
             />
-            {nextEmailStep && !isProofVerified && (
+            {nextEmailStep && !isProofVerified && !showYourAttestations && (
               <div className="bg-white rounded-lg p-6 shadow-sm">
                 <h2 className="text-xs font-geist-mono text-[#525252] mb-4">
                   CONNECT GOOGLE ACCOUNT
@@ -568,7 +570,7 @@ export const MainPage: React.FC = () => {
                     </div>
                   )}
                 {
-                  /* fetchedEmails.length > 0 && */ !isProofVerified && (
+                  /* fetchedEmails.length > 0 && */ !isProofVerified && isGoogleAuthed && (
                     <button
                       onClick={handleContinueAndMint}
                       disabled={generatingProof}
@@ -637,6 +639,7 @@ export const MainPage: React.FC = () => {
             )}
           </div>
         </div>
+        <Footer />
       </div>
     </div>
   );
