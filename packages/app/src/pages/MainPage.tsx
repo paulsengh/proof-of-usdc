@@ -332,7 +332,9 @@ export const MainPage: React.FC = () => {
     <div className="h-screen flex flex-col overflow-hidden">
       <header className="flex-shrink-0">
         <div className="bg-[#404040] h-[70px] flex items-center justify-center text-white">
-          <p className="text-[18px] font-[600] tracking-[0.5]">Introducing: <span className="font-normal">Our Vision →</span> </p>
+          <p className="text-[18px] font-[600] tracking-[0.5]">
+            Introducing: <span className="font-normal">Our Vision →</span>{" "}
+          </p>
         </div>
         <div className="bg-white bg-opacity-70 h-[80px] flex items-center justify-between px-6">
           <img src="/obl-logo-alt.svg" alt="obl-logo" width={180} height={25} />
@@ -373,7 +375,12 @@ export const MainPage: React.FC = () => {
                 onClick={connectWallet}
                 className="flex border font-medium rounded-lg border-[#D4D4D4] bg-white items-center text-[#0C2B32] px-4 py-2 transition-colors hover:bg-gray-50 shadow-md h-[31px]"
               >
-                <img src="/wallet.svg" height={15} width={15} alt="Wallet" />
+                <img
+                  src="/wallet-icon.svg"
+                  height={15}
+                  width={15}
+                  alt="Wallet"
+                />
                 <p className="pl-2">Connect Wallet</p>
               </button>
             )}
@@ -570,11 +577,12 @@ export const MainPage: React.FC = () => {
                     </div>
                   )}
                 {
-                  /* fetchedEmails.length > 0 && */ !isProofVerified && isGoogleAuthed && (
-                    <button
-                      onClick={handleContinueAndMint}
-                      disabled={generatingProof}
-                      className={`w-full text-xl mt-6 font-semibold
+                  /* fetchedEmails.length > 0 && */ !isProofVerified &&
+                    isGoogleAuthed && (
+                      <button
+                        onClick={handleContinueAndMint}
+                        disabled={generatingProof}
+                        className={`w-full text-xl mt-6 font-semibold
       ${
         generatingProof
           ? "bg-white"
@@ -582,17 +590,17 @@ export const MainPage: React.FC = () => {
       }
       text-[#217F90] rounded-lg p-6 text-center
       flex items-center justify-center`}
-                    >
-                      {generatingProof ? (
-                        <>
-                          <Loader2 className="animate-spin mr-2 h-5 w-5" />
-                          Generating Proof...
-                        </>
-                      ) : (
-                        "Continue"
-                      )}
-                    </button>
-                  )
+                      >
+                        {generatingProof ? (
+                          <>
+                            <Loader2 className="animate-spin mr-2 h-5 w-5" />
+                            Generating Proof...
+                          </>
+                        ) : (
+                          "Continue"
+                        )}
+                      </button>
+                    )
                 }
               </div>
             )}
