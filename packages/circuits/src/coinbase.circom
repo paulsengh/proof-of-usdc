@@ -23,6 +23,8 @@ include "./reward-amount-regex.circom";
 /// @input address ETH address as identity commitment (to make it as part of the proof).
 /// @output pubkeyHash Poseidon hash of the pubkey - Poseidon(n/2)(n/2 chunks of pubkey with k*2 bits per chunk).
 template CoinbaseVerifier(maxHeadersLength, maxBodyLength, n, k) {
+    assert(n * k > 1024); // constraints for 1024 bit RSA
+    
     signal input emailHeader[maxHeadersLength];
     signal input emailHeaderLength;
     signal input pubkey[k];
@@ -79,4 +81,4 @@ template CoinbaseVerifier(maxHeadersLength, maxBodyLength, n, k) {
 }
 
 
-component main { public [ address ] } = CoinbaseVerifier(1024, 1536, 121, 17);
+component main { public [ address ] } = CoinbaseVerifier(1024, 0, 121, 17);

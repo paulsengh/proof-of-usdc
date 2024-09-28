@@ -10,7 +10,7 @@ print("AWS_ACCESS_KEY_ID:", os.getenv('AWS_ACCESS_KEY_ID'))
 print("AWS_SECRET_ACCESS_KEY:", os.getenv('AWS_SECRET_ACCESS_KEY'))
 
 # Set up the client for the AWS S3 service
-s3 = boto3.client('s3', aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'), aws_session_token=os.getenv('AWS_SESSION_TOKEN'))  # Ask Aayush for the access key and secret access key
+s3 = boto3.client('s3', aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'))  # Ask Aayush for the access key and secret access key
 
 parser = argparse.ArgumentParser(description='Upload the compressed zkey, cpp, and js compilation files to S3 bucket')
 parser.add_argument('--bucket_name', type=str, default='', help='Name of the S3 bucket')
