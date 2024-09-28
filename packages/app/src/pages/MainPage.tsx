@@ -174,7 +174,13 @@ export const MainPage: React.FC = () => {
     setIsPlatformSelected(!isPlatformSelected);
   };
 
-  function reformatProofForContractCall(proof: any) {
+  function reformatProofForContractCall(
+    proof: any
+  ): [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint] {
+    if (!proof || !proof.pi_a || !proof.pi_b || !proof.pi_c) {
+      throw new Error("Invalid proof structure");
+    }
+
     return [
       BigInt(proof.pi_a[0]),
       BigInt(proof.pi_a[1]),
