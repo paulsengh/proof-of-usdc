@@ -5,8 +5,8 @@ import {
   fetchEmailsRaw,
   RawEmailResponse,
 } from "../hooks/useGmailClient";
-import { useAccount, useContractWrite, usePrepareContractWrite } from "wagmi";
-import abi from "../ProofOfUSDC.json";
+import { useWriteContract } from "wagmi";
+import { abi } from "../ProofOfUSDC";
 import { convertTimestampToDate } from "../utils/convertTimestampToDate";
 import { parseEmailContent } from "../utils/parseEmailContent";
 import {
@@ -62,8 +62,12 @@ export const MainPage: React.FC = () => {
   const [exampleEmailContent, setExampleEmailContent] = useState("");
   const [isBeforeProveModalOpen, setIsBeforeProveModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isProofReady, setIsProofReady] = useState(false);
   const [proof, setProof] = useState<any>(null);
   const [publicSignals, setPublicSignals] = useState<any>(null);
+  const [isMinting, setIsMinting] = useState(false);
+  const [mintError, setMintError] = useState<string | null>(null);
+  const [shouldMint, setShouldMint] = useState(false);
 
   const {
     googleAuthToken,
@@ -72,6 +76,8 @@ export const MainPage: React.FC = () => {
     googleLogIn,
     googleLogOut,
   } = useGoogleAuth();
+
+  const { writeContract, data, error, isSuccess } = useWriteContract();
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
@@ -168,54 +174,48 @@ export const MainPage: React.FC = () => {
     setIsPlatformSelected(!isPlatformSelected);
   };
 
-  const reformatProofForChain = (proofStr: string) => {
-    if (!proofStr) return [];
-
-    const proof = JSON.parse(proofStr);
-
+  function reformatProofForContractCall(proof: any) {
     return [
-      proof.pi_a.slice(0, 2),
-      proof.pi_b
-        .slice(0, 2)
-        .map((s: string[]) => s.reverse())
-        .flat(),
-      proof.pi_c.slice(0, 2),
-    ].flat();
+      BigInt(proof.pi_a[0]),
+      BigInt(proof.pi_a[1]),
+      BigInt(proof.pi_b[0][1]),
+      BigInt(proof.pi_b[0][0]),
+      BigInt(proof.pi_b[1][1]),
+      BigInt(proof.pi_b[1][0]),
+      BigInt(proof.pi_c[0]),
+      BigInt(proof.pi_c[1]),
+    ];
+  }
+
+  function reformatSignalsForContractCall(publicSignals: any) {
+    return publicSignals.map((signal: string) => BigInt(signal));
+  }
+
+  const handleMint = async () => {
+    if (!proof || !publicSignals) {
+      console.error("Proof or public signals are missing");
+      return;
+    }
+
+    const reformattedProof = reformatProofForContractCall(proof);
+    console.log("reformattedProof: ", reformattedProof);
+    const reformattedSignals = reformatSignalsForContractCall(publicSignals);
+    console.log("reformattedSignals: ", reformattedSignals);
+
+    try {
+      const result = await writeContract({
+        abi,
+        address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
+        functionName: "mint",
+        args: [reformattedProof, reformattedSignals],
+      });
+
+      console.log("Transaction submitted:", result);
+    } catch (err) {
+      console.error("Error calling mint function:", err);
+      throw err;
+    }
   };
-
-  console.log("before usePrepareContractWrite publicSignals: ", publicSignals);
-  console.log("before usePrepareContractWrite proof: ", proof);
-  console.log(
-    "before usePrepareContractWrite reformatProofForChain(proof): ",
-    reformatProofForChain(proof)
-  );
-
-  const { config } = usePrepareContractWrite({
-    // @ts-ignore
-    address: import.meta.env.VITE_CONTRACT_ADDRESS,
-    abi: abi,
-    functionName: "mint",
-    args: [
-      reformatProofForChain(proof),
-      publicSignals ? JSON.parse(publicSignals) : [],
-    ],
-    enabled: !!(proof && publicSignals),
-    onError: (error: { message: any }) => {
-      console.error(error.message);
-      // TODO: handle errors
-    },
-  });
-
-  console.log("Prepare config:", config);
-
-  const { data, isLoading, isSuccess, write } = useContractWrite(config);
-
-  console.log("Contract write data:", data);
-  console.log("Contract write loading:", isLoading);
-  console.log("Contract write success:", isSuccess);
-  //console.log("Contract write error:", writeError);
-
-  console.log("tx data: ", data);
 
   const handleProofStep = useCallback(async () => {
     setNextProofStep(true);
@@ -233,10 +233,6 @@ export const MainPage: React.FC = () => {
 
       console.log("handleProofStep circuitInputs: ", circuitInputs);
       const base_url = import.meta.env.VITE_CIRCUIT_ARTIFACTS_URL;
-      console.log(
-        "handleProofStep import.meta.env.VITE_CIRCUIT_ARTIFACTS_URL: ",
-        import.meta.env.VITE_CIRCUIT_ARTIFACTS_URL
-      );
       console.log("handleProofStep base_url: ", base_url);
       const { proof, publicSignals } = await generateProof(
         circuitInputs,
@@ -255,7 +251,7 @@ export const MainPage: React.FC = () => {
       });
 
       await s3Client.send(proofUploadCommand);
-      console.log("just after upload: ", proofUploadCommand);
+      console.log("Proof uploaded successfully");
 
       const proofDownloadCommand = new GetObjectCommand({
         Bucket: import.meta.env.VITE_AWS_BUCKET,
@@ -263,35 +259,71 @@ export const MainPage: React.FC = () => {
       });
       const proofData = await s3Client.send(proofDownloadCommand);
 
-      console.log("proofData: ", proofData);
-
       const proofBody = await proofData.Body?.transformToString();
+      if (!proofBody) {
+        throw new Error("Downloaded proof body is empty");
+      }
 
       const { proof: downloadedProof, publicSignals: downloadedPublicSignals } =
-        JSON.parse(proofBody!);
+        JSON.parse(proofBody);
 
-      console.log("downloadedProof: ", downloadedProof);
-      console.log("downloadedPublicSignals: ", downloadedPublicSignals);
+      console.log("handleProofStep downloadedProof: ", downloadedProof);
+      console.log(
+        "handleProofStep downloadedPublicSignals: ",
+        downloadedPublicSignals
+      );
 
-      setProof(JSON.stringify(downloadedProof));
-      setPublicSignals(JSON.stringify(downloadedPublicSignals));
-      // setProof(downloadedProof);
-      // setPublicSignals(downloadedPublicSignals);
-
-      setIsProofVerified(true);
+      setProof(downloadedProof);
+      setPublicSignals(downloadedPublicSignals);
+      setIsProofReady(true);
+      setShouldMint(true);
     } catch (error) {
-      console.error("Error generating and uploading proof:", error);
+      console.error("Error in handleProofStep:", error);
+      setMintError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
     } finally {
       setGeneratingProof(false);
     }
   }, [walletAddress, exampleEmailContent]);
+
+  useEffect(() => {
+    const mintIfReady = async () => {
+      if (shouldMint && proof && publicSignals) {
+        try {
+          setIsMinting(true);
+          await handleMint();
+          setIsProofVerified(true);
+          setShouldMint(false);
+        } catch (error) {
+          console.error("Error in minting:", error);
+          setMintError(
+            error instanceof Error ? error.message : "An unknown error occurred"
+          );
+        } finally {
+          setIsMinting(false);
+        }
+      }
+    };
+
+    mintIfReady();
+  }, [proof, publicSignals, shouldMint]);
+
+  const handleContinueAndMint = async () => {
+    setMintError(null);
+    if (!isProofReady) {
+      await handleProofStep();
+    } else {
+      setShouldMint(true);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <header className="flex-shrink-0">
         <div className="bg-[#404040] h-[70px] flex items-center justify-center text-white">
-          <p className="text-lg">Introducing: Our Vision </p>
+          <p className="text-lg">Introducing: Our Vision → </p>
         </div>
-
         <div className="bg-white bg-opacity-70 h-[80px] flex items-center justify-between px-6">
           <img src="/obl-logo.svg" alt="obl-logo" width={180} height={25} />
 
@@ -314,7 +346,7 @@ export const MainPage: React.FC = () => {
                   width={15}
                   alt="Wallet"
                 />
-                <p className="pl-2 truncate w-32">{walletAddress}</p>
+                <p className="pl-2">Connected</p>
               </div>
             ) : (
               <button
@@ -333,6 +365,9 @@ export const MainPage: React.FC = () => {
           </div>
         </div>
       </header>
+
+      {isSuccess && <p>Transaction successful! Hash: {data}</p>}
+      {error && <p>Error: {error.message}</p>}
       <InstructionsModal isOpen={isModalOpen} onClose={closeModal} />
       <div className="flex-grow overflow-auto bg-[#FAF8F4]">
         <div className="flex flex-col items-center py-8">
@@ -345,7 +380,7 @@ export const MainPage: React.FC = () => {
                   width={40}
                   alt="Check"
                 />
-                <p className="ml-4 font-medium text-lg">You&apos;re verified</p>
+                <p className="ml-4 font-medium text-lg">You're verified</p>
               </div>
             )}
             {!isProofVerified && (
@@ -445,9 +480,7 @@ export const MainPage: React.FC = () => {
                   </div> */}
                 </>
               )}
-            {!nextEmailStep && !isPlatformSelected && (
-              <RecentAttestationsTable />
-            )}
+            {!nextEmailStep && <RecentAttestationsTable />}
             <BeforeProveModal
               isOpen={isBeforeProveModalOpen}
               onClose={closeBeforeProveModal}
@@ -529,10 +562,9 @@ export const MainPage: React.FC = () => {
                     </div>
                   )}
                 {
-                  // fetchedEmails.length > 0 &&
-                  !isProofVerified && (
+                  /* fetchedEmails.length > 0 && */ !isProofVerified && (
                     <button
-                      onClick={handleProofStep}
+                      onClick={handleContinueAndMint}
                       disabled={generatingProof}
                       className={`w-full text-xl mt-6 font-semibold
       ${
