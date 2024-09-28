@@ -89,6 +89,40 @@ export const MainPage: React.FC = () => {
   const connectWallet = async () => {
     if (typeof window.ethereum !== "undefined") {
       try {
+        // Check if Sepolia network is already added
+        const chainId = '0xaa36a7'; // Sepolia chain ID
+        const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+
+        if (currentChainId !== chainId) {
+          // Try to switch to Sepolia network
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId }],
+            });
+          } catch (switchError) {
+            // If the network is not added, add it
+            if (switchError.code === 4902) {
+              await window.ethereum.request({
+                method: "wallet_addEthereumChain",
+                params: [{
+                  chainId,
+                  chainName: 'Sepolia Test Network',
+                  nativeCurrency: {
+                    name: 'SepoliaETH',
+                    symbol: 'SEP', // Shortened symbol to fit within 1-6 characters
+                    decimals: 18
+                  },
+                  rpcUrls: ['https://sepolia.infura.io/v3/' + import.meta.env.VITE_INFURA_PROJECT_ID],
+                  blockExplorerUrls: ['https://sepolia.etherscan.io']
+                }]
+              });
+            } else {
+              throw switchError;
+            }
+          }
+        }
+
         await window.ethereum.request({ method: "eth_requestAccounts" });
         const accounts = (await window.ethereum.request({
           method: "eth_accounts",
